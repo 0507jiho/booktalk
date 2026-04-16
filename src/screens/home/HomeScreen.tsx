@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  feedEmptyText: { fontSize: 13, color: '#9BA5E0', flex: 1, lineHeight: 18 },
+  feedEmptyText: { fontSize: 13, color: '#9BA5E0', lineHeight: 18, flexShrink: 1 },
 
   // Feed cards
   card: {

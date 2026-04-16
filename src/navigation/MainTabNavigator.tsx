@@ -40,7 +40,11 @@ export default function MainTabNavigator() {
         headerShadowVisible: false,
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#767676',
-        tabBarStyle: { paddingTop: 8, paddingBottom: insets.bottom > 0 ? insets.bottom : 8 },
+        tabBarStyle: {
+          paddingTop: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 0),
+        },
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICONS[route.name];
           return (
