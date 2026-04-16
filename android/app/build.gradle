@@ -89,7 +89,7 @@ android {
 
     namespace "com.booktalk"
     defaultConfig {
-        applicationId "com.booktalk"
+        applicationId "com.booktalk.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
