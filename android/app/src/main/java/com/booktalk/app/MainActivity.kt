@@ -3,8 +3,8 @@ package com.booktalk.app
 import android.os.Build
 import android.os.Bundle
 
-import com.booktalk.BuildConfig
-import com.booktalk.R
+import com.booktalk.app.BuildConfig
+import com.booktalk.app.R
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled

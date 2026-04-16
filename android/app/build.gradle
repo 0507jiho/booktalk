@@ -87,7 +87,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.booktalk"
+    namespace "com.booktalk.app"
     defaultConfig {
         applicationId "com.booktalk.app"
         minSdkVersion rootProject.ext.minSdkVersion
