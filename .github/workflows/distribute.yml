@@ -22,6 +22,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: Install dependencies
         run: npm ci
 
@@ -31,8 +37,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build APK (preview)
-        run: eas build --profile preview --platform android --non-interactive --output ./build/app-preview.apk
+      - name: Build APK (local)
+        run: |
+          mkdir -p ./build
+          eas build --profile preview --platform android --non-interactive --local --output ./build/app-preview.apk
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
