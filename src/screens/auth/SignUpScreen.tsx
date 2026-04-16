@@ -62,8 +62,8 @@ export default function SignUpScreen({ navigation }: Props) {
         createdAt: serverTimestamp(),
       });
       Analytics.signUp();
-    } catch (e: any) {
-      Alert.alert('회원가입 실패', getErrorMessage(e.code));
+    } catch (e) {
+      Alert.alert('회원가입 실패', getErrorMessage((e as { code: string }).code));
     } finally {
       setIsLoading(false);
     }

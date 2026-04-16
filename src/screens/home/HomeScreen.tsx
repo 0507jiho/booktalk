@@ -247,7 +247,7 @@ function HomeHeader({
   );
 }
 
-function SectionHeader({ title, icon, onPress }: { title: string; icon: string; onPress?: () => void }) {
+function SectionHeader({ title, icon, onPress }: { title: string; icon: React.ComponentProps<typeof Ionicons>['name']; onPress?: () => void }) {
   return (
     <TouchableOpacity
       style={styles.sectionHeader}
@@ -255,7 +255,7 @@ function SectionHeader({ title, icon, onPress }: { title: string; icon: string; 
       disabled={!onPress}
       activeOpacity={onPress ? 0.6 : 1}
     >
-      <Ionicons name={icon as any} size={16} color={PRIMARY} />
+      <Ionicons name={icon} size={16} color={PRIMARY} />
       <Text style={styles.sectionTitle}>{title}</Text>
       {onPress && (
         <View style={styles.sectionMore}>

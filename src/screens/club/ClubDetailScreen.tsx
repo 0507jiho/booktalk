@@ -194,8 +194,8 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
           try {
             await leaveClub(clubId, uid);
             navigation.goBack();
-          } catch (e: any) {
-            Alert.alert('오류', e.message ?? '탈퇴에 실패했습니다.');
+          } catch (e) {
+            Alert.alert('오류', (e as Error).message ?? '탈퇴에 실패했습니다.');
           }
         },
       },
@@ -632,7 +632,7 @@ function EventFormModal({
           date: Timestamp.fromDate(parsed.toDate()),
           location: location.trim(),
         });
-        onSaved({ ...editingEvent, title: title.trim(), date: { toDate: () => parsed.toDate(), toMillis: () => parsed.toDate().getTime() } as any, location: location.trim() });
+        onSaved({ ...editingEvent, title: title.trim(), date: Timestamp.fromDate(parsed.toDate()), location: location.trim() });
       } else {
         const event = await createEvent(clubId, title.trim(), parsed.toDate(), location.trim());
         onSaved(event);

@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { signOut, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 // import { signOutGoogle } from '@/services/firebase/googleAuth'; // TODO: 네이티브 빌드 시 활성화
@@ -33,7 +33,7 @@ export default function ProfileScreen() {
   const { reset: resetFeed } = useFeedStore();
   const { myReviews, myTopics, myAnswers, isLoading, fetchMyContent, reset: resetProfile } = useProfileStore();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
 
   const [activeTab, setActiveTab] = useState<TabKey>('posts');
   const [signingOut, setSigningOut] = useState(false);
@@ -69,8 +69,9 @@ export default function ProfileScreen() {
               resetFeed();
               resetProfile();
               await deleteUser(user);
-            } catch (e: any) {
-              if (e.code === 'auth/requires-recent-login') {
+            } catch (e) {
+              const err = e as { code?: string };
+              if (err.code === 'auth/requires-recent-login') {
                 Alert.alert(
                   '재인증 필요',
                   '보안을 위해 로그아웃 후 다시 로그인한 뒤 탈퇴를 진행해주세요.'

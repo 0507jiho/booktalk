@@ -311,7 +311,7 @@ function TopicHeader({
         <View key={ref.id} style={styles.quoteBlock}>
           <View style={styles.quoteAccentBar} />
           <View style={styles.quoteInner}>
-            <Text style={styles.quoteText}>"{ref.quote!.text}"</Text>
+            <Text style={styles.quoteText}>&ldquo;{ref.quote!.text}&rdquo;</Text>
             {ref.quote!.page && <Text style={styles.quotePage}>— p.{ref.quote!.page}</Text>}
           </View>
         </View>

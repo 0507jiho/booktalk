@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '@/services/firebase/config';
+import { User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 import { registerPushToken } from '@/services/push';
 import AuthNavigator from './AuthNavigator';
@@ -30,7 +31,7 @@ export default function RootNavigator() {
           AsyncStorage.getItem('onboarding_done'),
         ]);
         if (snap.exists()) {
-          setUserProfile(snap.data() as any);
+          setUserProfile(snap.data() as User);
         }
         setOnboardingDone(done === 'true');
         registerPushToken(user.uid);

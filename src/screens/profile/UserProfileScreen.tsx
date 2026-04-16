@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import { fetchUserProfile } from '@/services/firebase/users';
 import { fetchUserReviews } from '@/services/firebase/reviews';
@@ -36,7 +36,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function UserProfileScreen({ route }: Props) {
   const { userId } = route.params;
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { firebaseUser } = useAuthStore();
   const myUid = firebaseUser?.uid;
 
@@ -215,10 +215,10 @@ export default function UserProfileScreen({ route }: Props) {
       {/* 탭 콘텐츠 */}
       <FlatList
         key={`${activeTab}-${numColumns}`}
-        data={tabData as any[]}
+        data={tabData as (UserBook | PostItem | string)[]}
         keyExtractor={(item, idx) => {
           if (activeTab === 'shelf') return (item as UserBook).bookId;
-          if (activeTab === 'posts') return 'reviewId' in item ? (item as Review).reviewId : (item as Topic).topicId;
+          if (activeTab === 'posts') return 'reviewId' in (item as PostItem) ? (item as Review).reviewId : (item as Topic).topicId;
           return `badge-${idx}`;
         }}
         numColumns={numColumns}

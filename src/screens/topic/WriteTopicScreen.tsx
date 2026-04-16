@@ -215,7 +215,7 @@ export default function WriteTopicScreen() {
             <View key={ref.id} style={styles.refCard}>
               {ref.type === 'quote' && (
                 <View style={styles.refQuoteInner}>
-                  <Text style={styles.refQuoteText}>"{ref.quote?.text}"</Text>
+                  <Text style={styles.refQuoteText}>&ldquo;{ref.quote?.text}&rdquo;</Text>
                   {ref.quote?.page && <Text style={styles.refQuotePage}>— p.{ref.quote.page}</Text>}
                 </View>
               )}

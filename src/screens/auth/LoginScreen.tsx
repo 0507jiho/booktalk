@@ -32,8 +32,8 @@ export default function LoginScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (e: any) {
-      Alert.alert('로그인 실패', getErrorMessage(e.code));
+    } catch (e) {
+      Alert.alert('로그인 실패', getErrorMessage((e as { code: string }).code));
     } finally {
       setIsLoading(false);
     }

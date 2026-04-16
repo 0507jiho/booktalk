@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { registerRootComponent } from 'expo';
@@ -8,7 +8,7 @@ import RootNavigator from '@/navigation/RootNavigator';
 import { ThemeProvider } from '@/theme';
 
 function App() {
-  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const navigationRef = useRef<NavigationContainerRef<ParamListBase>>(null);
   const notificationResponseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
   useEffect(() => {

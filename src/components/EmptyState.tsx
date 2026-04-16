@@ -15,7 +15,7 @@ export default function EmptyState({ icon, title, subtitle, ctaLabel, onCta }: P
     <View style={styles.container}>
       {icon ? (
         <View style={styles.iconWrap}>
-          <Ionicons name={icon as any} size={40} color="#9BA5E0" />
+          <Ionicons name={icon as React.ComponentProps<typeof Ionicons>['name']} size={40} color="#9BA5E0" />
         </View>
       ) : null}
       <Text style={styles.title}>{title}</Text>

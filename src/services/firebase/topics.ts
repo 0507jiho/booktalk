@@ -10,6 +10,7 @@ import {
   doc,
   where,
   serverTimestamp,
+  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase/config';
 import { Analytics } from '@/services/analytics';
@@ -33,7 +34,7 @@ export function computeTopicTrendScore(
 export async function fetchTopics(
   filter: TopicType | 'all'
 ): Promise<{ topics: Topic[] }> {
-  const constraints: any[] = [limit(PAGE_SIZE)];
+  const constraints: QueryConstraint[] = [limit(PAGE_SIZE)];
 
   if (filter !== 'all') {
     constraints.unshift(where('type', '==', filter));
