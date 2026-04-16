@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Build outputs
+functions/lib/
+android/app/build/
+android/.gradle/
+
+# Environment & secrets
+.env
+.env.local
+google-services.json
+GoogleService-Info.plist
+
+# Native key files
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+android/app/debug.keystore
+
+# Service account & admin credentials
+scripts/serviceAccountKey.json
+
+# Logs
+deploy-log.txt
+firebase-debug.log
+functions/firebase-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+CLAUDE.md
+.omc/
+
+# Misc
+*.orig.*

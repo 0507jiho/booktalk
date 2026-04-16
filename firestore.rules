@@ -1,0 +1,211 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── 헬퍼 함수 ───────────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function isClubOwner(clubId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
+    }
+
+    // 오너도 멤버로 간주 (멤버십 문서가 없어도 오너는 항상 허용)
+    function isClubMember(clubId) {
+      return isClubOwner(clubId) ||
+        (isAuth() && exists(/databases/$(database)/documents/memberships/$(clubId + '_' + request.auth.uid)));
+    }
+
+    function isActiveMember(clubId) {
+      return isClubOwner(clubId) || (
+        isAuth() &&
+        exists(/databases/$(database)/documents/memberships/$(clubId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/memberships/$(clubId + '_' + request.auth.uid)).data.status == 'active'
+      );
+    }
+
+    // ─── users ────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if isAuth();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    // ─── books ────────────────────────────────────────────────────────────────
+    match /books/{bookId} {
+      allow read: if isAuth();
+      allow write: if isAuth(); // 알라딘 API 통해 앱에서 저장
+    }
+
+    // ─── reviews ──────────────────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── topics ───────────────────────────────────────────────────────────────
+    match /topics/{topicId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // 소유자: 모든 필드 수정 가능 / 인증 사용자: likeCount·trendScore·answerCount·proCount·conCount만 허용
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likeCount', 'trendScore', 'answerCount', 'proCount', 'conCount', 'neutralCount'])
+      );
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── answers ──────────────────────────────────────────────────────────────
+    match /answers/{answerId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+      );
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── replies ──────────────────────────────────────────────────────────────
+    match /replies/{replyId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+      );
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── likes ────────────────────────────────────────────────────────────────
+    // likeId 형식: {userId}_{targetId}_{targetType}
+    match /likes/{likeId} {
+      // resource가 null(문서 없음)일 때도 허용 — checkIsLiked 에서 getDoc 사용
+      allow read: if isAuth() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ─── follows ──────────────────────────────────────────────────────────────
+    // followId 형식: {followerId}_{followingId}
+    match /follows/{followId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.followerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ─── clubs ────────────────────────────────────────────────────────────────
+    match /clubs/{clubId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ─── memberships ──────────────────────────────────────────────────────────
+    // membershipId 형식: {clubId}_{uid}
+    match /memberships/{membershipId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (
+        request.resource.data.uid == request.auth.uid ||
+        isClubOwner(request.resource.data.clubId)
+      );
+      allow update: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        isClubOwner(resource.data.clubId)
+      );
+      allow delete: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        isClubOwner(resource.data.clubId)
+      );
+    }
+
+    // ─── events ───────────────────────────────────────────────────────────────
+    match /events/{eventId} {
+      allow read: if isAuth() && isClubMember(resource.data.clubId);
+      allow create: if isAuth() && isClubOwner(request.resource.data.clubId);
+      allow update: if isAuth() && (
+        isClubOwner(resource.data.clubId) ||
+        // 참석 토글: attendees 필드만 변경 허용
+        (isActiveMember(resource.data.clubId) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees']))
+      );
+      allow delete: if isClubOwner(resource.data.clubId);
+    }
+
+    // ─── badges ───────────────────────────────────────────────────────────────
+    match /badges/{badgeId} {
+      allow read: if isAuth();
+      allow write: if false; // 관리자만 (Cloud Functions 경유)
+    }
+
+    // ─── notifications ────────────────────────────────────────────────────────
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create: if false; // Cloud Functions에서만 생성
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ─── userBooks ────────────────────────────────────────────────────────────
+    // userBookId 형식: {userId}_{bookId}
+    match /userBooks/{userBookId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── clubAnswers ──────────────────────────────────────────────────────────
+    match /clubAnswers/{clubAnswerId} {
+      allow read: if isAuth() && isActiveMember(resource.data.clubId);
+      allow create: if isAuth()
+        && isActiveMember(request.resource.data.clubId)
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+      );
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── votes ────────────────────────────────────────────────────────────────
+    // voteId 형식: {userId}_{topicId}
+    match /votes/{voteId} {
+      allow read: if isAuth() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── reports ──────────────────────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow create: if isAuth() && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // ─── blocks ───────────────────────────────────────────────────────────────
+    match /blocks/{blockId} {
+      allow read: if isAuth() && resource.data.blockerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.blockerId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.blockerId == request.auth.uid;
+      allow update: if false;
+    }
+
+  }
+}

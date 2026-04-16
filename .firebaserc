@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "test": "booktalk-140a6",
+    "booktalk": "booktalk-b0f82",
+    "default": "booktalk-b0f82"
+  },
+  "targets": {},
+  "etags": {}
+}
