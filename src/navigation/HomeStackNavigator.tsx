@@ -67,7 +67,7 @@ function HomeFeedHeader({ navigation }: NativeStackHeaderProps) {
         onPress={() => navigation.navigate('BookSearch')}
         activeOpacity={0.7}
       >
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search" size={14} color="#BDBDBD" />
         <Text style={styles.searchPlaceholder}>책 제목, 저자 검색...</Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -106,7 +106,7 @@ export default function HomeStackNavigator() {
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} options={{ title: '리뷰 작성' }} />
       <Stack.Screen name="WriteTopic" component={WriteTopicScreen} options={{ title: '발제 작성' }} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: '프로필' }} />
-      <Stack.Screen name="Notification" component={NotificationScreen} options={{ title: '알림', headerShown: true }} />
+      <Stack.Screen name="Notification" component={NotificationScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TrendingBooks" component={TrendingBooksScreen} options={{ title: '인기 도서' }} />
       <Stack.Screen name="TrendingTopics" component={TrendingTopicsScreen} options={{ title: '지금 뜨는 발제' }} />
     </Stack.Navigator>
@@ -141,6 +141,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  searchIcon: { fontSize: 14 },
   searchPlaceholder: { fontSize: 14, color: '#BDBDBD' },
 });

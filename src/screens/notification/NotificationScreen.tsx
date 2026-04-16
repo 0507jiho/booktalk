@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { fetchNotifications, markAllAsRead } from '@/services/firebase/notifications';
 import { useAuthStore } from '@/stores/authStore';
 import { Notification, NotificationType } from '@/types';
@@ -32,6 +34,7 @@ const TYPE_ICON: Record<NotificationType, string> = {
 
 export default function NotificationScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { firebaseUser } = useAuthStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,8 +66,16 @@ export default function NotificationScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로 가기"
+        >
+          <Ionicons name="chevron-back" size={24} color="#212121" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>알림</Text>
-        {hasUnread && (
+        {hasUnread ? (
           <TouchableOpacity
             onPress={handleMarkAllRead}
             accessibilityRole="button"
@@ -73,6 +84,8 @@ export default function NotificationScreen() {
           >
             <Text style={styles.markAllRead}>모두 읽음</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
         )}
       </View>
 

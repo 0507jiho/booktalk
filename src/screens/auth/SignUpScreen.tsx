@@ -9,7 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/services/firebase/config';
@@ -27,7 +29,24 @@ export default function SignUpScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date(2000, 0, 1));
+  const [showPicker, setShowPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  function handleDateChange(event: DateTimePickerEvent, date?: Date) {
+    if (Platform.OS === 'android') {
+      setShowPicker(false);
+      if (event.type === 'set' && date) {
+        setSelectedDate(date);
+        setBirthDate(dayjs(date).format('YYYY-MM-DD'));
+      }
+    } else {
+      if (date) {
+        setSelectedDate(date);
+        setBirthDate(dayjs(date).format('YYYY-MM-DD'));
+      }
+    }
+  }
 
   async function handleSignUp() {
     if (!email || !password || !displayName || !birthDate) {
@@ -39,10 +58,6 @@ export default function SignUpScreen({ navigation }: Props) {
       return;
     }
     const parsedDate = dayjs(birthDate, 'YYYY-MM-DD', true);
-    if (!parsedDate.isValid()) {
-      Alert.alert('입력 오류', '생년월일을 YYYY-MM-DD 형식으로 입력해주세요.');
-      return;
-    }
     if (dayjs().diff(parsedDate, 'year') < 14) {
       Alert.alert('가입 불가', '만 14세 이상만 가입할 수 있습니다.');
       return;
@@ -72,9 +87,13 @@ export default function SignUpScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>회원가입</Text>
 
         <TextInput
@@ -83,14 +102,54 @@ export default function SignUpScreen({ navigation }: Props) {
           value={displayName}
           onChangeText={setDisplayName}
         />
-        <TextInput
-          style={styles.input}
-          placeholder="생년월일 (YYYY-MM-DD)"
-          value={birthDate}
-          onChangeText={setBirthDate}
-          keyboardType="numeric"
-          maxLength={10}
-        />
+
+        {/* 생년월일 선택 버튼 */}
+        <TouchableOpacity
+          style={[styles.input, styles.dateButton]}
+          onPress={() => setShowPicker(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={birthDate ? styles.dateText : styles.datePlaceholder}>
+            {birthDate || '생년월일 선택'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Android: 인라인 피커 */}
+        {Platform.OS === 'android' && showPicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="calendar"
+            maximumDate={new Date()}
+            minimumDate={new Date(1900, 0, 1)}
+            onChange={handleDateChange}
+          />
+        )}
+
+        {/* iOS: 모달 피커 */}
+        {Platform.OS === 'ios' && (
+          <Modal visible={showPicker} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowPicker(false)}>
+                    <Text style={styles.modalDone}>완료</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1900, 0, 1)}
+                  onChange={handleDateChange}
+                  locale="ko-KR"
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+
         <TextInput
           style={styles.input}
           placeholder="이메일"
@@ -161,6 +220,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 16,
   },
+  dateButton: {
+    justifyContent: 'center',
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#212121',
+  },
+  datePlaceholder: {
+    fontSize: 16,
+    color: '#BDBDBD',
+  },
   button: {
     width: '100%',
     height: 48,
@@ -182,5 +252,28 @@ const styles = StyleSheet.create({
   backText: {
     color: '#4A90E2',
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalDone: {
+    fontSize: 16,
+    color: '#4A90E2',
+    fontWeight: '600',
   },
 });

@@ -651,6 +651,7 @@ const styles = StyleSheet.create({
   feedEmptyNote: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 20,
     paddingVertical: 16,

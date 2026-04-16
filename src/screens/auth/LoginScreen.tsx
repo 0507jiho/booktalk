@@ -8,6 +8,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/services/firebase/config';
@@ -41,39 +44,47 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Text style={styles.title}>BookTalk</Text>
-      <Text style={styles.subtitle}>독서토론 커뮤니티</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.title}>BookTalk</Text>
+          <Text style={styles.subtitle}>독서토론 커뮤니티</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="이메일"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="비밀번호"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+          <TextInput
+            style={styles.input}
+            placeholder="이메일"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="비밀번호"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
+          </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-        <Text style={styles.signUpText}>계정이 없으신가요? 회원가입</Text>
-      </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={styles.signUpText}>계정이 없으신가요? 회원가입</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
@@ -95,10 +106,11 @@ function getErrorMessage(code: string) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 40,
     backgroundColor: '#fff',
   },
   title: {
@@ -139,45 +151,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 13,
-    color: '#9E9E9E',
-  },
-  googleButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 10,
-  },
-  googleIcon: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4285F4',
-  },
-  googleButtonText: {
-    fontSize: 16,
-    color: '#212121',
-    fontWeight: '500',
   },
   signUpText: {
     color: '#4A90E2',
