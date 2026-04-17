@@ -2,6 +2,7 @@ import {
   collection,
   query,
   where,
+  orderBy,
   getDocs,
   doc,
   getDoc,
@@ -16,7 +17,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase/config';
-import { Club, Membership, User } from '@/types';
+import { Club, Membership, User, BookRef } from '@/types';
 
 export async function fetchClub(clubId: string): Promise<Club | null> {
   const snap = await getDoc(doc(db, 'clubs', clubId));
@@ -49,14 +50,16 @@ export async function createClub(
   description: string,
   isPrivate: boolean
 ): Promise<Club> {
-  const clubRef = await addDoc(collection(db, 'clubs'), {
+  const clubData: Record<string, unknown> = {
     name,
     description,
     ownerId: uid,
     memberCount: 1,
     isPrivate,
     createdAt: serverTimestamp(),
-  });
+  };
+  if (isPrivate) clubData.inviteCode = makeInviteCode();
+  const clubRef = await addDoc(collection(db, 'clubs'), clubData);
 
   await setDoc(doc(db, 'memberships', membershipId(clubRef.id, uid)), {
     clubId: clubRef.id,
@@ -100,6 +103,17 @@ export async function selectBookForClub(
     bookAuthor: book.bookAuthor,
     selectedTopicIds: [], // 책 변경 시 기존 선택 초기화
   });
+}
+
+export async function addBookToClub(clubId: string, book: BookRef): Promise<void> {
+  await updateDoc(doc(db, 'clubs', clubId), { books: arrayUnion(book) });
+}
+
+export async function removeBookFromClub(clubId: string, bookId: string): Promise<void> {
+  const snap = await getDoc(doc(db, 'clubs', clubId));
+  const current: BookRef[] = snap.data()?.books ?? [];
+  const updated = current.filter(b => b.bookId !== bookId);
+  await updateDoc(doc(db, 'clubs', clubId), { books: updated });
 }
 
 export async function addTopicToClub(clubId: string, topicId: string): Promise<void> {
@@ -211,4 +225,42 @@ export async function fetchPublicClubs(maxResults = 20): Promise<Club[]> {
 export async function checkIsMember(clubId: string, uid: string): Promise<boolean> {
   const snap = await getDoc(doc(db, 'memberships', `${clubId}_${uid}`));
   return snap.exists() && snap.data().status === 'active';
+}
+
+function makeInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+export async function generateInviteCode(clubId: string): Promise<string> {
+  const code = makeInviteCode();
+  await updateDoc(doc(db, 'clubs', clubId), { inviteCode: code });
+  return code;
+}
+
+export async function joinByInviteCode(code: string, uid: string): Promise<Club> {
+  const snap = await getDocs(
+    query(collection(db, 'clubs'), where('inviteCode', '==', code.toUpperCase()), limit(1))
+  );
+  if (snap.empty) throw new Error('유효하지 않은 초대 코드입니다.');
+  const clubDoc = snap.docs[0];
+  const club = { clubId: clubDoc.id, ...clubDoc.data() } as Club;
+  await joinClub(club.clubId, uid);
+  return club;
+}
+
+export async function searchClubs(keyword: string, maxResults = 20): Promise<Club[]> {
+  if (!keyword.trim()) return fetchPublicClubs(maxResults);
+  const end = keyword + '\uf8ff';
+  const snap = await getDocs(
+    query(
+      collection(db, 'clubs'),
+      where('isPrivate', '==', false),
+      orderBy('name'),
+      where('name', '>=', keyword),
+      where('name', '<=', end),
+      limit(maxResults),
+    )
+  );
+  return snap.docs.map(d => ({ clubId: d.id, ...d.data() } as Club));
 }

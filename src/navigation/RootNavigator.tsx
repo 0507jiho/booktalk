@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SplashScreen from 'expo-splash-screen';
 import { auth, db } from '@/services/firebase/config';
 import { User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,6 +10,8 @@ import { registerPushToken } from '@/services/push';
 import AuthNavigator from './AuthNavigator';
 import MainTabNavigator from './MainTabNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootNavigator() {
   const {
@@ -24,6 +26,13 @@ export default function RootNavigator() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async user => {
+      if (user) {
+        const autoLogin = await AsyncStorage.getItem('auto_login');
+        if (autoLogin === 'false') {
+          await signOut(auth);
+          return;
+        }
+      }
       setFirebaseUser(user);
       if (user) {
         const [snap, done] = await Promise.all([
@@ -40,17 +49,12 @@ export default function RootNavigator() {
         setOnboardingDone(false);
       }
       setInitialized(true);
+      SplashScreen.hideAsync();
     });
     return unsubscribe;
   }, []);
 
-  if (!isInitialized) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-      </View>
-    );
-  }
+  if (!isInitialized) return null;
 
   if (!firebaseUser) return <AuthNavigator />;
   if (!onboardingDone) return <OnboardingNavigator />;

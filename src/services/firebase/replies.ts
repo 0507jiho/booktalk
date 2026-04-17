@@ -5,6 +5,9 @@ import {
   orderBy,
   getDocs,
   addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
   getDoc,
 } from 'firebase/firestore';
@@ -40,4 +43,12 @@ export async function addReply(
   Analytics.replyCreated();
   const snap = await getDoc(ref);
   return { replyId: ref.id, ...snap.data() } as Reply;
+}
+
+export async function updateReply(replyId: string, content: string): Promise<void> {
+  await updateDoc(doc(db, 'replies', replyId), { content });
+}
+
+export async function deleteReply(replyId: string): Promise<void> {
+  await deleteDoc(doc(db, 'replies', replyId));
 }

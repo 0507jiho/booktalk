@@ -18,9 +18,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import dayjs from 'dayjs';
 import { TopicStackParamList } from '@/navigation/TopicStackNavigator';
-import { fetchTopic } from '@/services/firebase/topics';
-import { fetchAnswers, addAnswer } from '@/services/firebase/answers';
-import { fetchReplies, addReply } from '@/services/firebase/replies';
+import { fetchTopic, updateTopic, deleteTopic } from '@/services/firebase/topics';
+import { fetchAnswers, addAnswer, updateAnswer, deleteAnswer } from '@/services/firebase/answers';
+import { fetchReplies, addReply, updateReply, deleteReply } from '@/services/firebase/replies';
 import { checkIsLiked, toggleLike } from '@/services/firebase/likes';
 import { fetchVote, castVote } from '@/services/firebase/votes';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,6 +28,7 @@ import { Topic, Answer, AnswerSide, Reply, SubQuestion } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { fixImageUrl } from '@/utils/image';
 import StanceProgressBar from '@/components/StanceProgressBar';
+import SpoilerContent from '@/components/SpoilerContent';
 
 type Props = NativeStackScreenProps<TopicStackParamList, 'TopicDetail'>;
 
@@ -53,6 +54,9 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
   const [selectedSubQuestion, setSelectedSubQuestion] = useState<string | null>(null);
   const [userVote, setUserVote] = useState<AnswerSide | null>(null);
   const [voteCounts, setVoteCounts] = useState({ proCount: 0, conCount: 0, neutralCount: 0 });
+  const [editTopicVisible, setEditTopicVisible] = useState(false);
+  const [editTopicTitle, setEditTopicTitle] = useState('');
+  const [editTopicBody, setEditTopicBody] = useState('');
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -130,6 +134,63 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
     setTopic(prev => prev ? { ...prev, answerCount: prev.answerCount + 1 } : prev);
   }
 
+  function handleEditTopic() {
+    if (!topic) return;
+    setEditTopicTitle(topic.title);
+    setEditTopicBody(topic.body ?? '');
+    setEditTopicVisible(true);
+  }
+
+  async function handleSaveTopicEdit() {
+    if (!topic) return;
+    try {
+      await updateTopic(topic.topicId, { title: editTopicTitle.trim(), body: editTopicBody.trim() });
+      setTopic(prev => prev ? { ...prev, title: editTopicTitle.trim(), body: editTopicBody.trim() } : prev);
+      setEditTopicVisible(false);
+    } catch {
+      Alert.alert('오류', '발제 수정에 실패했습니다.');
+    }
+  }
+
+  function handleDeleteTopic() {
+    if (!topic) return;
+    Alert.alert('발제 삭제', '이 발제를 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteTopic(topic.topicId);
+            navigation.goBack();
+          } catch {
+            Alert.alert('오류', '삭제에 실패했습니다.');
+          }
+        },
+      },
+    ]);
+  }
+
+  function handleDeleteAnswer(answerId: string) {
+    if (!topic) return;
+    Alert.alert('답변 삭제', '이 답변을 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteAnswer(answerId, topic.topicId);
+            setAnswers(prev => prev.filter(a => a.answerId !== answerId));
+            setTopic(prev => prev ? { ...prev, answerCount: Math.max(0, prev.answerCount - 1) } : prev);
+          } catch {
+            Alert.alert('오류', '삭제에 실패했습니다.');
+          }
+        },
+      },
+    ]);
+  }
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -167,14 +228,17 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
             answer={item}
             uid={firebaseUser?.uid ?? ''}
             displayName={userProfile?.displayName ?? ''}
+            topicId={topic.topicId}
             subQuestions={topic?.subQuestions}
             onAuthorPress={(userId) => navigation.navigate('UserProfile', { userId })}
+            onDeleteAnswer={handleDeleteAnswer}
           />
         )}
         ListHeaderComponent={
           <>
             <TopicHeader
               topic={topic}
+              uid={firebaseUser?.uid ?? ''}
               proCount={voteCounts.proCount}
               conCount={voteCounts.conCount}
               neutralCount={voteCounts.neutralCount}
@@ -184,6 +248,8 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
               isLiked={topicIsLiked}
               likeCount={topicLikeCount}
               onLike={handleTopicLike}
+              onEdit={handleEditTopic}
+              onDelete={handleDeleteTopic}
               onBookPress={() =>
                 navigation.navigate('BookDetail', {
                   bookId: topic.bookId,
@@ -243,12 +309,51 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
           setShowAddAnswer(false);
         }}
       />
+
+      <Modal visible={editTopicVisible} animationType="slide" transparent onRequestClose={() => setEditTopicVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAwareScrollView
+            style={styles.modalContainer}
+            contentContainerStyle={{ paddingBottom: 32 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            extraScrollHeight={24}
+            enableOnAndroid
+          >
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>발제 수정</Text>
+            <TextInput
+              style={[styles.contentInput, { minHeight: 48, marginBottom: 12 }]}
+              placeholder="제목"
+              value={editTopicTitle}
+              onChangeText={setEditTopicTitle}
+            />
+            <TextInput
+              style={[styles.contentInput, { minHeight: 100 }]}
+              placeholder="내용"
+              value={editTopicBody}
+              onChangeText={setEditTopicBody}
+              multiline
+              textAlignVertical="top"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditTopicVisible(false)}>
+                <Text style={styles.cancelText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleSaveTopicEdit}>
+                <Text style={styles.confirmText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAwareScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 function TopicHeader({
   topic,
+  uid,
   proCount,
   conCount,
   neutralCount,
@@ -258,10 +363,13 @@ function TopicHeader({
   isLiked,
   likeCount,
   onLike,
+  onEdit,
+  onDelete,
   onBookPress,
   onAuthorPress,
 }: {
   topic: Topic;
+  uid: string;
   proCount: number;
   conCount: number;
   neutralCount: number;
@@ -271,21 +379,38 @@ function TopicHeader({
   isLiked: boolean;
   likeCount: number;
   onLike: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   onBookPress: () => void;
   onAuthorPress: () => void;
 }) {
+  function showMenu() {
+    Alert.alert('발제 관리', '', [
+      { text: '수정', onPress: onEdit },
+      { text: '삭제', style: 'destructive', onPress: onDelete },
+      { text: '취소', style: 'cancel' },
+    ]);
+  }
+
   return (
     <View style={styles.header}>
       {/* 작성자 */}
-      <TouchableOpacity style={styles.authorRow} onPress={onAuthorPress} activeOpacity={0.7}>
-        <View style={styles.authorAvatar}>
-          <Text style={styles.authorAvatarText}>
-            {(topic.displayName ?? '?').charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <Text style={styles.authorName}>{topic.displayName ?? '알 수 없음'}</Text>
-        <Text style={styles.metaDate}>{dayjs(topic.createdAt.toDate()).format('YYYY.MM.DD')}</Text>
-      </TouchableOpacity>
+      <View style={styles.authorRow}>
+        <TouchableOpacity style={styles.authorRowInner} onPress={onAuthorPress} activeOpacity={0.7}>
+          <View style={styles.authorAvatar}>
+            <Text style={styles.authorAvatarText}>
+              {(topic.displayName ?? '?').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.authorName}>{topic.displayName ?? '알 수 없음'}</Text>
+          <Text style={styles.metaDate}>{dayjs(topic.createdAt.toDate()).format('YYYY.MM.DD')}</Text>
+        </TouchableOpacity>
+        {uid === topic.userId && (
+          <TouchableOpacity onPress={showMenu} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#767676" />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* 책 미니카드 (클릭 가능) */}
       {(topic.bookCoverUrl || topic.bookTitle) && (
@@ -317,7 +442,9 @@ function TopicHeader({
         </View>
       ))}
 
-      <Text style={styles.topicBody}>{topic.body}</Text>
+      <SpoilerContent hasSpoiler={topic.hasSpoiler}>
+        <Text style={styles.topicBody}>{topic.body}</Text>
+      </SpoilerContent>
 
       {/* 링크 — 미니멀 인라인 출처 표기 */}
       {topic.references?.filter(r => r.type === 'link' && r.link).map(ref => {
@@ -348,22 +475,29 @@ function TopicHeader({
         <>
           {/* 투표 버튼 */}
           <View style={styles.voteButtons}>
-            {SIDE_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[
-                  styles.voteBtn,
-                  { borderColor: opt.color },
-                  userVote === opt.value && { backgroundColor: opt.color },
-                ]}
-                onPress={() => onVote(opt.value)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.voteBtnText, { color: userVote === opt.value ? '#fff' : opt.color }]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {SIDE_OPTIONS.map(opt => {
+              const displayLabel = opt.value === 'pro'
+                ? (topic.proLabel || opt.label)
+                : opt.value === 'con'
+                  ? (topic.conLabel || opt.label)
+                  : opt.label;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.voteBtn,
+                    { borderColor: opt.color },
+                    userVote === opt.value && { backgroundColor: opt.color },
+                  ]}
+                  onPress={() => onVote(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.voteBtnText, { color: userVote === opt.value ? '#fff' : opt.color }]}>
+                    {displayLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
           {/* 투표 집계 바 */}
           <StanceProgressBar
@@ -394,14 +528,18 @@ function AnswerItem({
   answer,
   uid,
   displayName,
+  topicId,
   subQuestions,
   onAuthorPress,
+  onDeleteAnswer,
 }: {
   answer: Answer;
   uid: string;
   displayName: string;
+  topicId: string;
   subQuestions?: SubQuestion[];
   onAuthorPress: (userId: string) => void;
+  onDeleteAnswer: (answerId: string) => void;
 }) {
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState<Reply[]>([]);
@@ -410,6 +548,65 @@ function AnswerItem({
   const [submitting, setSubmitting] = useState(false);
   const [answerIsLiked, setAnswerIsLiked] = useState(false);
   const [answerLikeCount, setAnswerLikeCount] = useState(answer.likeCount);
+  const [contentExpanded, setContentExpanded] = useState(false);
+  const [contentTruncated, setContentTruncated] = useState(false);
+  const [isEditingAnswer, setIsEditingAnswer] = useState(false);
+  const [editAnswerContent, setEditAnswerContent] = useState(answer.content);
+  const [displayContent, setDisplayContent] = useState(answer.content);
+  const [replyEditId, setReplyEditId] = useState<string | null>(null);
+  const [replyEditContent, setReplyEditContent] = useState('');
+
+  function showAnswerMenu() {
+    Alert.alert('답변 관리', '', [
+      { text: '수정', onPress: () => { setEditAnswerContent(displayContent); setIsEditingAnswer(true); } },
+      { text: '삭제', style: 'destructive', onPress: () => onDeleteAnswer(answer.answerId) },
+      { text: '취소', style: 'cancel' },
+    ]);
+  }
+
+  async function handleSaveAnswerEdit() {
+    if (!editAnswerContent.trim()) return;
+    try {
+      await updateAnswer(answer.answerId, editAnswerContent.trim());
+      setDisplayContent(editAnswerContent.trim());
+      setIsEditingAnswer(false);
+    } catch {
+      Alert.alert('오류', '수정에 실패했습니다.');
+    }
+  }
+
+  function showReplyMenu(r: Reply) {
+    Alert.alert('답글 관리', '', [
+      { text: '수정', onPress: () => { setReplyEditContent(r.content); setReplyEditId(r.replyId); } },
+      {
+        text: '삭제', style: 'destructive', onPress: () => {
+          Alert.alert('답글 삭제', '이 답글을 삭제할까요?', [
+            { text: '취소', style: 'cancel' },
+            { text: '삭제', style: 'destructive', onPress: async () => {
+              try {
+                await deleteReply(r.replyId);
+                setReplies(prev => prev.filter(x => x.replyId !== r.replyId));
+              } catch {
+                Alert.alert('오류', '삭제에 실패했습니다.');
+              }
+            }},
+          ]);
+        }
+      },
+      { text: '취소', style: 'cancel' },
+    ]);
+  }
+
+  async function handleSaveReplyEdit(replyId: string) {
+    if (!replyEditContent.trim()) return;
+    try {
+      await updateReply(replyId, replyEditContent.trim());
+      setReplies(prev => prev.map(r => r.replyId === replyId ? { ...r, content: replyEditContent.trim() } : r));
+      setReplyEditId(null);
+    } catch {
+      Alert.alert('오류', '수정에 실패했습니다.');
+    }
+  }
 
   useEffect(() => {
     if (!uid) return;
@@ -489,13 +686,56 @@ function AnswerItem({
           </Text>
         )}
         <Text style={styles.answerDate}>{dayjs(answer.createdAt.toDate()).format('MM.DD HH:mm')}</Text>
+        {uid === answer.userId && (
+          <TouchableOpacity onPress={showAnswerMenu} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
+            <Ionicons name="ellipsis-horizontal" size={18} color="#767676" />
+          </TouchableOpacity>
+        )}
       </View>
       {linkedQuestion && (
         <View style={styles.subQBadge}>
           <Text style={styles.subQBadgeText} numberOfLines={1}>Q{(subQuestions?.findIndex(q => q.id === linkedQuestion.id) ?? 0) + 1}: {linkedQuestion.text}</Text>
         </View>
       )}
-      <Text style={styles.answerContent}>{answer.content}</Text>
+      {isEditingAnswer ? (
+        <View>
+          <TextInput
+            style={[styles.contentInput, { minHeight: 80, marginBottom: 8 }]}
+            value={editAnswerContent}
+            onChangeText={setEditAnswerContent}
+            multiline
+            textAlignVertical="top"
+            autoFocus
+          />
+          <View style={[styles.modalButtons, { marginBottom: 8 }]}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsEditingAnswer(false)}>
+              <Text style={styles.cancelText}>취소</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmBtn} onPress={handleSaveAnswerEdit}>
+              <Text style={styles.confirmText}>저장</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <>
+          <Text
+            style={styles.answerContent}
+            numberOfLines={contentExpanded ? undefined : 5}
+            onTextLayout={e => {
+              if (!contentExpanded && e.nativeEvent.lines.length >= 5) {
+                setContentTruncated(true);
+              }
+            }}
+          >
+            {displayContent}
+          </Text>
+          {contentTruncated && (
+            <TouchableOpacity onPress={() => setContentExpanded(v => !v)} style={styles.expandBtn}>
+              <Text style={styles.expandBtnText}>{contentExpanded ? '접기' : '더 보기'}</Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
       <View style={styles.answerActions}>
         <TouchableOpacity style={styles.actionItem} onPress={handleAnswerLike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name={answerIsLiked ? 'heart' : 'heart-outline'} size={14} color={answerIsLiked ? '#E74C3C' : '#767676'} />
@@ -518,23 +758,50 @@ function AnswerItem({
           ) : (
             replies.map(r => (
               <View key={r.replyId} style={styles.replyItem}>
-                <TouchableOpacity
-                  style={styles.replyAuthorRow}
-                  activeOpacity={0.7}
-                  onPress={() => onAuthorPress(r.userId)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${r.displayName ?? '사용자'} 프로필 보기`}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <View style={styles.replyAvatar}>
-                    <Text style={styles.replyAvatarText}>
-                      {(r.displayName ?? '?').charAt(0).toUpperCase()}
-                    </Text>
+                <View style={styles.replyHeaderRow}>
+                  <TouchableOpacity
+                    style={styles.replyAuthorRow}
+                    activeOpacity={0.7}
+                    onPress={() => onAuthorPress(r.userId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${r.displayName ?? '사용자'} 프로필 보기`}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <View style={styles.replyAvatar}>
+                      <Text style={styles.replyAvatarText}>
+                        {(r.displayName ?? '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.replyAuthorName}>{r.displayName ?? '알 수 없음'}</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.replyDate}>{dayjs(r.createdAt.toDate()).format('MM.DD HH:mm')}</Text>
+                  {uid === r.userId && (
+                    <TouchableOpacity onPress={() => showReplyMenu(r)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
+                      <Ionicons name="ellipsis-horizontal" size={16} color="#767676" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {replyEditId === r.replyId ? (
+                  <View>
+                    <TextInput
+                      style={[styles.replyInput, { marginBottom: 6 }]}
+                      value={replyEditContent}
+                      onChangeText={setReplyEditContent}
+                      multiline
+                      autoFocus
+                    />
+                    <View style={[styles.modalButtons, { marginBottom: 4 }]}>
+                      <TouchableOpacity style={styles.cancelBtn} onPress={() => setReplyEditId(null)}>
+                        <Text style={styles.cancelText}>취소</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.confirmBtn} onPress={() => handleSaveReplyEdit(r.replyId)}>
+                        <Text style={styles.confirmText}>저장</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <Text style={styles.replyAuthorName}>{r.displayName ?? '알 수 없음'}</Text>
-                </TouchableOpacity>
-                <Text style={styles.replyContent}>{r.content}</Text>
-                <Text style={styles.replyDate}>{dayjs(r.createdAt.toDate()).format('MM.DD HH:mm')}</Text>
+                ) : (
+                  <Text style={styles.replyContent}>{r.content}</Text>
+                )}
               </View>
             ))
           )}
@@ -741,14 +1008,16 @@ function AddAnswerModal({
           {hasSubQuestions && (
             <View style={styles.subQSelector}>
               <Text style={styles.subQSelectorLabel}>어떤 질문에 답변하시나요? <Text style={styles.optional}>(선택)</Text></Text>
-              <TouchableOpacity
-                style={[styles.subQOption, selectedSubQuestionId === null && styles.subQOptionActive]}
-                onPress={() => setSelectedSubQuestionId(null)}
-              >
-                <Text style={[styles.subQOptionText, selectedSubQuestionId === null && styles.subQOptionTextActive]}>
-                  전체 발제에 대한 답변
-                </Text>
-              </TouchableOpacity>
+              {(topic.subQuestions?.length ?? 0) > 1 && (
+                <TouchableOpacity
+                  style={[styles.subQOption, selectedSubQuestionId === null && styles.subQOptionActive]}
+                  onPress={() => setSelectedSubQuestionId(null)}
+                >
+                  <Text style={[styles.subQOptionText, selectedSubQuestionId === null && styles.subQOptionTextActive]}>
+                    전체 발제에 대한 답변
+                  </Text>
+                </TouchableOpacity>
+              )}
               {topic.subQuestions!.map((q, i) => (
                 <TouchableOpacity
                   key={q.id}
@@ -765,21 +1034,28 @@ function AddAnswerModal({
 
           {isAgreeDisagree && (
             <View style={styles.sideSelector}>
-              {SIDE_OPTIONS.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={[
-                    styles.sideBtn,
-                    { borderColor: opt.color },
-                    side === opt.value && { backgroundColor: opt.color },
-                  ]}
-                  onPress={() => setSide(opt.value)}
-                >
-                  <Text style={[styles.sideBtnText, side === opt.value && styles.sideBtnTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {SIDE_OPTIONS.map(opt => {
+                const displayLabel = opt.value === 'pro'
+                  ? (topic.proLabel || opt.label)
+                  : opt.value === 'con'
+                    ? (topic.conLabel || opt.label)
+                    : opt.label;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.sideBtn,
+                      { borderColor: opt.color },
+                      side === opt.value && { backgroundColor: opt.color },
+                    ]}
+                    onPress={() => setSide(opt.value)}
+                  >
+                    <Text style={[styles.sideBtnText, side === opt.value && styles.sideBtnTextActive]}>
+                      {displayLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
@@ -820,7 +1096,8 @@ const styles = StyleSheet.create({
   // Header
   header: { backgroundColor: '#fff', padding: 20, marginBottom: 8 },
 
-  authorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  authorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  authorRowInner: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   authorAvatar: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#3D4DC4', justifyContent: 'center', alignItems: 'center',
@@ -910,7 +1187,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden',
   },
   answerDate: { fontSize: 12, color: '#767676' },
-  answerContent: { fontSize: 15, color: '#212121', lineHeight: 22, marginBottom: 12 },
+  answerContent: { fontSize: 15, color: '#212121', lineHeight: 22, marginBottom: 4 },
+  expandBtn: { alignSelf: 'flex-start', marginBottom: 8 },
+  expandBtnText: { fontSize: 13, color: '#3D4DC4', fontWeight: '600' },
   answerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   actionItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   likeText: { fontSize: 13, color: '#767676' },
@@ -920,7 +1199,8 @@ const styles = StyleSheet.create({
   // Replies
   repliesSection: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
   replyItem: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  replyAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  replyHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  replyAuthorRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   replyAvatar: {
     width: 20, height: 20, borderRadius: 10,
     backgroundColor: '#616161', justifyContent: 'center', alignItems: 'center',
@@ -928,7 +1208,7 @@ const styles = StyleSheet.create({
   replyAvatarText: { fontSize: 9, fontWeight: 'bold', color: '#fff' },
   replyAuthorName: { fontSize: 12, fontWeight: '600', color: '#616161' },
   replyContent: { fontSize: 14, color: '#424242', lineHeight: 20 },
-  replyDate: { fontSize: 11, color: '#BDBDBD', marginTop: 4 },
+  replyDate: { fontSize: 11, color: '#BDBDBD' },
   emptyReply: { fontSize: 13, color: '#767676', textAlign: 'center', paddingVertical: 8 },
   replyInputRow: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'flex-end' },
   replyInput: {

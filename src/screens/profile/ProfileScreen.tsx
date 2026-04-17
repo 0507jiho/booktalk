@@ -8,7 +8,9 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +39,18 @@ export default function ProfileScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('posts');
   const [signingOut, setSigningOut] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('auto_login').then(v => {
+      setAutoLogin(v !== 'false');
+    });
+  }, []);
+
+  async function handleAutoLoginToggle(value: boolean) {
+    setAutoLogin(value);
+    await AsyncStorage.setItem('auto_login', value ? 'true' : 'false');
+  }
 
   const uid = firebaseUser?.uid;
 
@@ -185,6 +199,16 @@ export default function ProfileScreen() {
             <Text style={styles.deleteAccountText}>탈퇴</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* 설정 */}
+      <View style={styles.settingsRow}>
+        <Text style={styles.settingsLabel}>자동 로그인</Text>
+        <Switch
+          value={autoLogin}
+          onValueChange={handleAutoLoginToggle}
+          trackColor={{ true: '#3D4DC4' }}
+        />
       </View>
 
       {/* 탭 */}
@@ -511,6 +535,17 @@ const styles = StyleSheet.create({
   statNum: { fontWeight: '700', color: '#212121' },
   statSep: { fontSize: 13, color: '#BDBDBD' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  settingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  settingsLabel: { fontSize: 15, color: '#424242' },
   signOutIcon: { padding: 8 },
   signOutIconText: { fontSize: 20, color: '#767676' },
   deleteAccountBtn: { padding: 8 },

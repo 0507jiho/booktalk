@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +41,13 @@ export default function WriteTopicScreen() {
   const [quotePage, setQuotePage] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
+
+  // 찬반 레이블
+  const [proLabel, setProLabel] = useState('');
+  const [conLabel, setConLabel] = useState('');
+
+  // 스포일러
+  const [hasSpoiler, setHasSpoiler] = useState(false);
 
   // 세부 질문
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
@@ -126,6 +134,9 @@ export default function WriteTopicScreen() {
         references,
         subQuestions,
         ...(clubId ? { clubId } : {}),
+        ...(type === 'agree-disagree' && proLabel.trim() ? { proLabel: proLabel.trim() } : {}),
+        ...(type === 'agree-disagree' && conLabel.trim() ? { conLabel: conLabel.trim() } : {}),
+        ...(hasSpoiler ? { hasSpoiler: true } : {}),
       });
 
       if (clubId) {
@@ -178,6 +189,31 @@ export default function WriteTopicScreen() {
             ))}
           </View>
         </View>
+
+        {/* 찬반 레이블 커스텀 */}
+        {type === 'agree-disagree' && (
+          <View style={styles.section}>
+            <Text style={styles.label}>선택지 이름 <Text style={styles.optional}>(선택, 기본값: 찬성 / 반대)</Text></Text>
+            <View style={styles.labelRow}>
+              <TextInput
+                style={[styles.titleInput, { flex: 1 }]}
+                placeholder="찬성 측 이름"
+                placeholderTextColor="#BDBDBD"
+                value={proLabel}
+                onChangeText={setProLabel}
+                maxLength={20}
+              />
+              <TextInput
+                style={[styles.titleInput, { flex: 1 }]}
+                placeholder="반대 측 이름"
+                placeholderTextColor="#BDBDBD"
+                value={conLabel}
+                onChangeText={setConLabel}
+                maxLength={20}
+              />
+            </View>
+          </View>
+        )}
 
         {/* 제목 */}
         <View style={styles.section}>
@@ -325,12 +361,14 @@ export default function WriteTopicScreen() {
           {showQuestionInput && (
             <View style={styles.inputBox}>
               <TextInput
-                style={styles.titleInput}
+                style={styles.questionInput}
                 placeholder="질문을 입력하세요. (5자 이상)"
                 placeholderTextColor="#BDBDBD"
                 value={questionText}
                 onChangeText={setQuestionText}
-                maxLength={120}
+                maxLength={200}
+                multiline
+                scrollEnabled={false}
               />
               <View style={styles.inputBtnRow}>
                 <TouchableOpacity onPress={() => setShowQuestionInput(false)} style={styles.inputCancelBtn}>
@@ -352,6 +390,19 @@ export default function WriteTopicScreen() {
               <Text style={styles.refAddBtnText}>+ 질문 추가</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* 스포일러 토글 */}
+        <View style={styles.spoilerRow}>
+          <View>
+            <Text style={styles.spoilerLabel}>스포일러 포함</Text>
+            <Text style={styles.spoilerDesc}>독자에게 내용이 가려져 표시됩니다</Text>
+          </View>
+          <Switch
+            value={hasSpoiler}
+            onValueChange={setHasSpoiler}
+            trackColor={{ false: '#E0E0E0', true: '#3D4DC4' }}
+          />
         </View>
 
         <TouchableOpacity
@@ -389,6 +440,7 @@ const styles = StyleSheet.create({
   optional: { fontSize: 12, fontWeight: '400', color: '#9E9E9E' },
 
   typeRow: { flexDirection: 'row', gap: 10 },
+  labelRow: { flexDirection: 'row', gap: 10 },
   typeBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 8,
     borderWidth: 1.5, borderColor: '#E0E0E0',
@@ -406,6 +458,17 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 8,
     paddingHorizontal: 12,
+  },
+  questionInput: {
+    minHeight: 48,
+    fontSize: 15,
+    color: '#212121',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    textAlignVertical: 'top',
   },
   bodyInput: {
     minHeight: 160,
@@ -474,6 +537,14 @@ const styles = StyleSheet.create({
   },
   questionNum: { fontSize: 14, fontWeight: '700', color: '#4A90E2', marginRight: 8, lineHeight: 20 },
   questionText: { flex: 1, fontSize: 14, color: '#212121', lineHeight: 20 },
+
+  spoilerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 14,
+    borderRadius: 8, marginBottom: 12,
+  },
+  spoilerLabel: { fontSize: 15, color: '#212121', fontWeight: '600', marginBottom: 2 },
+  spoilerDesc: { fontSize: 12, color: '#767676' },
 
   submitBtn: {
     margin: 20,

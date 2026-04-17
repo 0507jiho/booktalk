@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
   proCount: number;
@@ -64,9 +65,15 @@ export default function StanceProgressBar({
       {/* 투표 수 + 답변 수 */}
       <View style={styles.countRow}>
         <View style={styles.voteStat}>
-          <Text style={styles.proCount}>👍 {proCount}명</Text>
-          {neutralCount > 0 && <Text style={styles.neutralCount}>— {neutralCount}명</Text>}
-          <Text style={styles.conCount}>{conCount}명 👎</Text>
+          <View style={styles.voteStatItem}>
+            <Ionicons name="thumbs-up" size={12} color="#27AE60" />
+            <Text style={styles.proCount}> {proCount}명</Text>
+          </View>
+          {neutralCount > 0 && <Text style={styles.neutralCount}>중립 {neutralCount}명</Text>}
+          <View style={styles.voteStatItem}>
+            <Ionicons name="thumbs-down" size={12} color="#E74C3C" />
+            <Text style={styles.conCount}> {conCount}명</Text>
+          </View>
         </View>
         <View style={styles.totalStats}>
           <Text style={styles.totalVote}>투표 {voteTotal}명</Text>
@@ -109,7 +116,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginTop: 6,
   },
-  voteStat: { flexDirection: 'row', gap: 10 },
+  voteStat: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  voteStatItem: { flexDirection: 'row', alignItems: 'center' },
   proCount: { fontSize: 12, color: '#27AE60' },
   neutralCount: { fontSize: 12, color: '#7F8C8D' },
   conCount: { fontSize: 12, color: '#E74C3C' },

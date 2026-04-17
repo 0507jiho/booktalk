@@ -170,6 +170,7 @@ export const aladinSearch = onCall(async (request) => {
     SearchTarget: 'Book',
     output: 'js',
     Version: '20131101',
+    Cover: 'Big',
   });
 
   const res = await fetch(`${ALADIN_BASE}/ItemSearch.aspx?${params}`);
@@ -186,6 +187,7 @@ export const aladinLookup = onCall(async (request) => {
     ItemId: isbn,
     output: 'js',
     Version: '20131101',
+    Cover: 'Big',
   });
 
   const res = await fetch(`${ALADIN_BASE}/ItemLookUp.aspx?${params}`);

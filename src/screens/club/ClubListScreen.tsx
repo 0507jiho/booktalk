@@ -21,8 +21,10 @@ import {
   fetchMyClubs,
   createClub,
   fetchPublicClubs,
+  searchClubs,
   checkIsMember,
   joinClub,
+  joinByInviteCode,
 } from '@/services/firebase/clubs';
 import { useAuthStore } from '@/stores/authStore';
 import { useClubStore } from '@/stores/clubStore';
@@ -47,6 +49,11 @@ export default function ClubListScreen() {
   const [publicClubs, setPublicClubs] = useState<PublicClubEntry[]>([]);
   const [isPublicLoading, setIsPublicLoading] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [joiningByCode, setJoiningByCode] = useState(false);
 
   const loadMyClubs = useCallback(async () => {
     if (!firebaseUser) return;
@@ -89,6 +96,43 @@ export default function ClubListScreen() {
     loadAll();
   }, [loadAll]);
 
+  async function handleJoinByCode() {
+    if (!inviteCode.trim() || !firebaseUser) return;
+    setJoiningByCode(true);
+    try {
+      const club = await joinByInviteCode(inviteCode.trim(), firebaseUser.uid);
+      Alert.alert('가입 완료', `${club.name}에 가입했습니다!`);
+      setShowInviteModal(false);
+      setInviteCode('');
+      await loadAll();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '가입에 실패했습니다.';
+      Alert.alert('오류', msg);
+    } finally {
+      setJoiningByCode(false);
+    }
+  }
+
+  async function handleSearch(text: string) {
+    setSearchQuery(text);
+    if (!firebaseUser) return;
+    setIsSearching(true);
+    try {
+      const clubs = await searchClubs(text);
+      const entries = await Promise.all(
+        clubs.map(async club => {
+          const member = await checkIsMember(club.clubId, firebaseUser.uid);
+          return { club, isMember: member };
+        })
+      );
+      setPublicClubs(entries);
+    } catch (e) {
+      console.error('모임 검색 실패:', e);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
   async function handleJoin(club: Club) {
     if (!firebaseUser) return;
     setJoiningId(club.clubId);
@@ -122,14 +166,38 @@ export default function ClubListScreen() {
       {/* 상단 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>모임</Text>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setShowCreateModal(true)}
-          accessibilityRole="button"
-          accessibilityLabel="새 모임 만들기"
-        >
-          <Text style={styles.createBtnText}>+ 모임 만들기</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.inviteCodeBtn}
+            onPress={() => setShowInviteModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="초대 코드로 참여"
+          >
+            <Ionicons name="key-outline" size={14} color="#3D4DC4" />
+            <Text style={styles.inviteCodeBtnText}>코드 입력</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={() => setShowCreateModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="새 모임 만들기"
+          >
+            <Text style={styles.createBtnText}>+ 모임 만들기</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={16} color="#9E9E9E" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="공개 모임 검색..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+        {isSearching && <ActivityIndicator size="small" color="#3D4DC4" />}
       </View>
 
       <ScrollView
@@ -189,6 +257,35 @@ export default function ClubListScreen() {
           ))
         )}
       </ScrollView>
+
+      <Modal visible={showInviteModal} animationType="slide" transparent onRequestClose={() => setShowInviteModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>초대 코드로 참여</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="6자리 초대 코드"
+              value={inviteCode}
+              onChangeText={v => setInviteCode(v.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={6}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowInviteModal(false); setInviteCode(''); }}>
+                <Text style={styles.cancelText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, joiningByCode && styles.buttonDisabled]}
+                onPress={handleJoinByCode}
+                disabled={joiningByCode}
+              >
+                <Text style={styles.confirmText}>{joiningByCode ? '참여 중...' : '참여하기'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <CreateClubModal
         visible={showCreateModal}
@@ -365,6 +462,18 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#212121' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inviteCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#3D4DC4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  inviteCodeBtnText: { color: '#3D4DC4', fontSize: 12, fontWeight: '600' },
   createBtn: {
     backgroundColor: '#3D4DC4',
     paddingHorizontal: 14,
@@ -373,6 +482,20 @@ const styles = StyleSheet.create({
   },
   createBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   scrollContent: { paddingBottom: 32 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: '#212121', padding: 0 },
 
   sectionTitle: {
     fontSize: 15,

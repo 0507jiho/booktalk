@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '@/navigation/HomeStackNavigator';
@@ -26,6 +27,7 @@ export default function WriteReviewScreen({ route, navigation }: Props) {
 
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
+  const [hasSpoiler, setHasSpoiler] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -50,6 +52,7 @@ export default function WriteReviewScreen({ route, navigation }: Props) {
         displayName: userProfile.displayName,
         rating: rating as 1 | 2 | 3 | 4 | 5,
         content: content.trim(),
+        ...(hasSpoiler ? { hasSpoiler: true } : {}),
       });
       navigation.goBack();
     } catch (e) {
@@ -95,6 +98,19 @@ export default function WriteReviewScreen({ route, navigation }: Props) {
             value={content}
             onChangeText={setContent}
             textAlignVertical="top"
+          />
+        </View>
+
+        {/* 스포일러 토글 */}
+        <View style={styles.spoilerRow}>
+          <View>
+            <Text style={styles.spoilerLabel}>스포일러 포함</Text>
+            <Text style={styles.spoilerDesc}>독자에게 내용이 가려져 표시됩니다</Text>
+          </View>
+          <Switch
+            value={hasSpoiler}
+            onValueChange={setHasSpoiler}
+            trackColor={{ false: '#E0E0E0', true: '#3D4DC4' }}
           />
         </View>
 
@@ -147,6 +163,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
+
+  spoilerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 14, marginTop: 8,
+  },
+  spoilerLabel: { fontSize: 15, color: '#212121', fontWeight: '600', marginBottom: 2 },
+  spoilerDesc: { fontSize: 12, color: '#767676' },
 
   submitBtn: {
     margin: 20,

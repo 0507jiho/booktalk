@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { ClubStackParamList } from '@/navigation/ClubStackNavigator';
 import {
@@ -30,6 +31,9 @@ import {
   rejectMember,
   fetchClubMembersWithProfile,
   fetchPendingMembers,
+  generateInviteCode,
+  addBookToClub,
+  removeBookFromClub,
   MemberWithProfile,
 } from '@/services/firebase/clubs';
 import {
@@ -41,7 +45,8 @@ import {
 } from '@/services/firebase/events';
 import { fetchTopic } from '@/services/firebase/topics';
 import { useAuthStore } from '@/stores/authStore';
-import { Club, Event, Membership, Topic } from '@/types';
+import { Club, Event, Membership, Topic, BookRef } from '@/types';
+import { ScrollView } from 'react-native';
 import { fixImageUrl } from '@/utils/image';
 
 type Props = NativeStackScreenProps<ClubStackParamList, 'ClubDetail'>;
@@ -306,17 +311,26 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
           isOwner={isOwner}
           onTopicPress={topicId => navigation.navigate('ClubTopicDetail', { topicId, clubId })}
           onSelectBook={() => navigation.navigate('SelectBook', { clubId })}
-          onSelectTopic={() => club.bookId && navigation.navigate('SelectTopic', {
-            clubId,
-            bookId: club.bookId,
-            selectedTopicIds: club.selectedTopicIds ?? [],
-          })}
-          onWriteTopic={() => club.bookId && navigation.navigate('WriteTopic', {
-            clubId,
-            bookId: club.bookId,
-            bookTitle: club.bookTitle ?? '',
-            bookCoverUrl: club.bookCoverUrl ?? '',
-          })}
+          onRemoveBook={async (bookId) => {
+            try {
+              await removeBookFromClub(clubId, bookId);
+              setClub(prev => prev ? { ...prev, books: (prev.books ?? []).filter(b => b.bookId !== bookId) } : prev);
+            } catch {
+              Alert.alert('오류', '책 제거에 실패했습니다.');
+            }
+          }}
+          onSelectTopic={() => {
+            const firstBook = club.books?.[0];
+            const bookId = firstBook?.bookId ?? club.bookId;
+            if (bookId) navigation.navigate('SelectTopic', { clubId, bookId, selectedTopicIds: club.selectedTopicIds ?? [] });
+          }}
+          onWriteTopic={() => {
+            const firstBook = club.books?.[0];
+            const bookId = firstBook?.bookId ?? club.bookId;
+            const bookTitle = firstBook?.title ?? club.bookTitle ?? '';
+            const bookCoverUrl = firstBook?.coverUrl ?? club.bookCoverUrl ?? '';
+            if (bookId) navigation.navigate('WriteTopic', { clubId, bookId, bookTitle, bookCoverUrl });
+          }}
         />
       )}
 
@@ -324,6 +338,7 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
       <EventFormModal
         visible={showAddEvent || editingEvent !== null}
         clubId={clubId}
+        books={club.books ?? (club.bookId ? [{ bookId: club.bookId, title: club.bookTitle ?? '', coverUrl: club.bookCoverUrl ?? '', author: club.bookAuthor ?? '' }] : [])}
         editingEvent={editingEvent}
         onClose={() => { setShowAddEvent(false); setEditingEvent(null); }}
         onSaved={event => {
@@ -495,21 +510,52 @@ function MembersTab({
 
 function TopicsTab({
   club, topics, isOwner,
-  onTopicPress, onSelectBook, onSelectTopic, onWriteTopic,
+  onTopicPress, onSelectBook, onRemoveBook, onSelectTopic, onWriteTopic,
 }: {
   club: Club;
   topics: Topic[];
   isOwner: boolean;
   onTopicPress: (topicId: string) => void;
   onSelectBook: () => void;
+  onRemoveBook: (bookId: string) => void;
   onSelectTopic: () => void;
   onWriteTopic: () => void;
 }) {
   return (
     <View style={styles.tabContent}>
-      {/* 현재 읽는 책 */}
+      {/* 읽는 책 목록 */}
       <View style={styles.bookHeader}>
-        {club.bookId ? (
+        <View style={styles.bookHeaderRow}>
+          <Text style={styles.bookHeaderTitle}>읽는 책</Text>
+          {isOwner && (
+            <TouchableOpacity style={styles.addBookBtn} onPress={onSelectBook}>
+              <Ionicons name="add-outline" size={14} color="#3D4DC4" />
+              <Text style={styles.addBookBtnText}>책 추가</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {(club.books?.length ?? 0) > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookListContent}>
+            {(club.books ?? []).map(b => (
+              <View key={b.bookId} style={styles.bookCard}>
+                {b.coverUrl ? (
+                  <Image source={{ uri: fixImageUrl(b.coverUrl) }} style={styles.bookCover} />
+                ) : (
+                  <View style={styles.bookCoverPlaceholder}>
+                    <Ionicons name="book-outline" size={20} color="#9E9E9E" />
+                  </View>
+                )}
+                <Text style={styles.bookCardTitle} numberOfLines={2}>{b.title}</Text>
+                <Text style={styles.bookCardAuthor} numberOfLines={1}>{b.author}</Text>
+                {isOwner && (
+                  <TouchableOpacity style={styles.removeBookBtn} onPress={() => onRemoveBook(b.bookId)}>
+                    <Ionicons name="close-circle" size={18} color="#E74C3C" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        ) : club.bookId ? (
           <View style={styles.bookRow}>
             {club.bookCoverUrl ? (
               <Image source={{ uri: fixImageUrl(club.bookCoverUrl) }} style={styles.bookCover} />
@@ -522,22 +568,12 @@ function TopicsTab({
               <Text style={styles.bookTitle} numberOfLines={2}>{club.bookTitle}</Text>
               <Text style={styles.bookAuthor}>{club.bookAuthor}</Text>
             </View>
-            {isOwner && (
-              <TouchableOpacity style={styles.changeBookBtn} onPress={onSelectBook}>
-                <Text style={styles.changeBookBtnText}>책 변경</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : (
           <View style={styles.noBookRow}>
             <Text style={styles.noBookText}>
-              {isOwner ? '읽을 책을 선택해주세요.' : '아직 책이 선택되지 않았어요.'}
+              {isOwner ? '읽을 책을 추가해주세요.' : '아직 책이 선택되지 않았어요.'}
             </Text>
-            {isOwner && (
-              <TouchableOpacity style={styles.selectBookBtn} onPress={onSelectBook}>
-                <Text style={styles.selectBookBtnText}>책 선택</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </View>
@@ -564,7 +600,7 @@ function TopicsTab({
           </TouchableOpacity>
         )}
         ListHeaderComponent={
-          isOwner && club.bookId ? (
+          isOwner && (club.books?.length || club.bookId) ? (
             <View style={styles.topicActions}>
               <TouchableOpacity style={styles.topicActionBtn} onPress={onSelectTopic}>
                 <Ionicons name="search-outline" size={15} color="#3D4DC4" />
@@ -578,7 +614,7 @@ function TopicsTab({
           ) : null
         }
         ListEmptyComponent={
-          club.bookId ? (
+          (club.books?.length || club.bookId) ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {isOwner ? '발제를 선택하거나 새로 작성해보세요.' : '아직 발제가 없어요.'}
@@ -595,46 +631,54 @@ function TopicsTab({
 // ─── EventFormModal ───────────────────────────────────────────────────────────
 
 function EventFormModal({
-  visible, clubId, editingEvent, onClose, onSaved,
+  visible, clubId, books, editingEvent, onClose, onSaved,
 }: {
   visible: boolean;
   clubId: string;
+  books: BookRef[];
   editingEvent: Event | null;
   onClose: () => void;
   onSaved: (event: Event) => void;
 }) {
   const [title, setTitle] = useState('');
-  const [dateStr, setDateStr] = useState('');
+  const [eventDate, setEventDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [location, setLocation] = useState('');
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (editingEvent) {
       setTitle(editingEvent.title);
-      setDateStr(dayjs(editingEvent.date.toDate()).format('YYYY-MM-DD'));
+      setEventDate(editingEvent.date.toDate());
       setLocation(editingEvent.location ?? '');
+      setSelectedBookId(editingEvent.bookId ?? null);
     } else {
-      setTitle(''); setDateStr(''); setLocation('');
+      setTitle(''); setEventDate(new Date()); setLocation(''); setSelectedBookId(null);
     }
   }, [editingEvent, visible]);
 
+  function handleDateChange(event: DateTimePickerEvent, date?: Date) {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (event.type === 'set' && date) setEventDate(date);
+  }
+
   async function handleSave() {
     if (!title.trim()) { Alert.alert('입력 오류', '일정 제목을 입력해주세요.'); return; }
-    const parsed = dayjs(dateStr, 'YYYY-MM-DD');
-    if (!parsed.isValid()) { Alert.alert('입력 오류', '날짜를 YYYY-MM-DD 형식으로 입력해주세요.'); return; }
-
     setIsLoading(true);
     try {
       if (editingEvent) {
         const { Timestamp } = await import('firebase/firestore');
-        await updateEvent(editingEvent.eventId, {
+        const updates = {
           title: title.trim(),
-          date: Timestamp.fromDate(parsed.toDate()),
+          date: Timestamp.fromDate(eventDate),
           location: location.trim(),
-        });
-        onSaved({ ...editingEvent, title: title.trim(), date: Timestamp.fromDate(parsed.toDate()), location: location.trim() });
+          ...(selectedBookId ? { bookId: selectedBookId } : {}),
+        };
+        await updateEvent(editingEvent.eventId, updates);
+        onSaved({ ...editingEvent, ...updates });
       } else {
-        const event = await createEvent(clubId, title.trim(), parsed.toDate(), location.trim());
+        const event = await createEvent(clubId, title.trim(), eventDate, location.trim(), undefined, selectedBookId ?? undefined);
         onSaved(event);
       }
     } catch {
@@ -646,18 +690,47 @@ function EventFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>{editingEvent ? '일정 수정' : '일정 추가'}</Text>
           <TextInput style={styles.input} placeholder="일정 제목" value={title} onChangeText={setTitle} />
-          <TextInput
-            style={styles.input}
-            placeholder="날짜 (YYYY-MM-DD)"
-            value={dateStr}
-            onChangeText={setDateStr}
-            keyboardType="numbers-and-punctuation"
-          />
+          <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
+            <Text style={styles.datePickerText}>{dayjs(eventDate).format('YYYY년 MM월 DD일')}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={eventDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={handleDateChange}
+              minimumDate={new Date(2020, 0, 1)}
+            />
+          )}
           <TextInput style={styles.input} placeholder="장소 (선택)" value={location} onChangeText={setLocation} />
+          {books.length > 0 && (
+            <View style={styles.bookPickerSection}>
+              <Text style={styles.bookPickerLabel}>관련 책 (선택)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.bookChip, selectedBookId === null && styles.bookChipActive]}
+                  onPress={() => setSelectedBookId(null)}
+                >
+                  <Text style={[styles.bookChipText, selectedBookId === null && styles.bookChipTextActive]}>없음</Text>
+                </TouchableOpacity>
+                {books.map(b => (
+                  <TouchableOpacity
+                    key={b.bookId}
+                    style={[styles.bookChip, selectedBookId === b.bookId && styles.bookChipActive]}
+                    onPress={() => setSelectedBookId(b.bookId)}
+                  >
+                    <Text style={[styles.bookChipText, selectedBookId === b.bookId && styles.bookChipTextActive]} numberOfLines={1}>
+                      {b.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
               <Text style={styles.cancelText}>취소</Text>
@@ -687,14 +760,29 @@ function ClubSettingsModal({
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentInviteCode, setCurrentInviteCode] = useState<string | undefined>(undefined);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setName(club.name);
       setDescription(club.description);
       setIsPrivate(club.isPrivate);
+      setCurrentInviteCode(club.inviteCode);
     }
   }, [visible, club]);
+
+  async function handleRegenerateCode() {
+    setRegenerating(true);
+    try {
+      const code = await generateInviteCode(club.clubId);
+      setCurrentInviteCode(code);
+    } catch {
+      Alert.alert('오류', '초대 코드 발급에 실패했습니다.');
+    } finally {
+      setRegenerating(false);
+    }
+  }
 
   async function handleSave() {
     if (!name.trim()) { Alert.alert('입력 오류', '모임 이름을 입력해주세요.'); return; }
@@ -711,7 +799,7 @@ function ClubSettingsModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>모임 설정</Text>
           <TextInput style={styles.input} placeholder="모임 이름" value={name} onChangeText={setName} />
@@ -726,6 +814,21 @@ function ClubSettingsModal({
             <Text style={styles.switchLabel}>비공개 모임</Text>
             <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#3D4DC4' }} />
           </View>
+          {isPrivate && (
+            <View style={styles.inviteCodeRow}>
+              <View>
+                <Text style={styles.inviteCodeLabel}>초대 코드</Text>
+                <Text style={styles.inviteCodeValue}>{currentInviteCode ?? '—'}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.regenBtn, regenerating && styles.buttonDisabled]}
+                onPress={handleRegenerateCode}
+                disabled={regenerating}
+              >
+                <Text style={styles.regenBtnText}>{regenerating ? '발급 중...' : '재발급'}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
               <Text style={styles.cancelText}>취소</Text>
@@ -855,6 +958,21 @@ const styles = StyleSheet.create({
   bookMeta: { flex: 1 },
   bookTitle: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 4 },
   bookAuthor: { fontSize: 12, color: '#616161' },
+  bookHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  bookHeaderTitle: { fontSize: 13, fontWeight: '700', color: '#424242' },
+  addBookBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#3D4DC4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  addBookBtnText: { fontSize: 12, color: '#3D4DC4', fontWeight: '600' },
+  bookListContent: { paddingVertical: 4, gap: 10 },
+  bookCard: { width: 100, backgroundColor: '#F8F8F8', borderRadius: 10, padding: 8, alignItems: 'center', position: 'relative' },
+  bookCardTitle: { fontSize: 11, fontWeight: '600', color: '#212121', textAlign: 'center', marginTop: 6 },
+  bookCardAuthor: { fontSize: 10, color: '#9E9E9E', textAlign: 'center', marginTop: 2 },
+  removeBookBtn: { position: 'absolute', top: -6, right: -6 },
+  bookPickerSection: { marginBottom: 12 },
+  bookPickerLabel: { fontSize: 13, color: '#616161', marginBottom: 6 },
+  bookChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#F8F8F8' },
+  bookChipActive: { backgroundColor: '#3D4DC4', borderColor: '#3D4DC4' },
+  bookChipText: { fontSize: 13, color: '#424242' },
+  bookChipTextActive: { color: '#fff', fontWeight: '600' },
   changeBookBtn: {
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
     borderWidth: 1, borderColor: '#3D4DC4',
@@ -904,6 +1022,11 @@ const styles = StyleSheet.create({
     width: '100%', height: 48, borderWidth: 1, borderColor: '#E0E0E0',
     borderRadius: 8, paddingHorizontal: 16, marginBottom: 12, fontSize: 15,
   },
+  datePickerBtn: {
+    width: '100%', height: 48, borderWidth: 1, borderColor: '#E0E0E0',
+    borderRadius: 8, paddingHorizontal: 16, marginBottom: 12, justifyContent: 'center',
+  },
+  datePickerText: { fontSize: 15, color: '#212121' },
   switchRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 24,
@@ -921,6 +1044,24 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: '#9BA5E0' },
   confirmText: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  inviteCodeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  inviteCodeLabel: { fontSize: 12, color: '#767676', marginBottom: 4 },
+  inviteCodeValue: { fontSize: 20, fontWeight: '700', color: '#212121', letterSpacing: 3 },
+  regenBtn: {
+    backgroundColor: '#3D4DC4',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  regenBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   deleteClubBtn: {
     marginTop: 16, paddingVertical: 12, alignItems: 'center',
     borderRadius: 8, borderWidth: 1, borderColor: '#FFCDD2',

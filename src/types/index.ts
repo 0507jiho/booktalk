@@ -37,6 +37,7 @@ export interface Review {
   rating: 1 | 2 | 3 | 4 | 5;
   content: string;
   likeCount: number;
+  hasSpoiler?: boolean;
   createdAt: Timestamp;
 }
 
@@ -100,10 +101,13 @@ export interface Topic {
   proCount?: number;      // agree-disagree 타입 전용
   conCount?: number;      // agree-disagree 타입 전용
   neutralCount?: number;  // agree-disagree 타입 전용
+  proLabel?: string;      // 커스텀 찬성 레이블 (기본: '찬성')
+  conLabel?: string;      // 커스텀 반대 레이블 (기본: '반대')
   createdAt: Timestamp;
   clubId?: string; // 모임 소속 발제인 경우
   references?: TopicReference[];   // 참고 자료 (최대 10개)
   subQuestions?: SubQuestion[];    // 세부 질문 (최대 5개)
+  hasSpoiler?: boolean;
 }
 
 // ─── Answer (답변) ─────────────────────────────────────
@@ -164,6 +168,14 @@ export interface UserBook {
 }
 // Firestore: userBooks/{userId}_{bookId}
 
+// ─── BookRef (모임 내 책 참조) ────────────────────────
+export interface BookRef {
+  bookId: string;
+  title: string;
+  coverUrl: string;
+  author: string;
+}
+
 // ─── Club (모임) ───────────────────────────────────────
 export interface Club {
   clubId: string;
@@ -174,13 +186,16 @@ export interface Club {
   isPrivate: boolean;
   coverUrl?: string;
   createdAt: Timestamp;
-  // 현재 읽는 책 (일대일 매칭)
+  // 현재 읽는 책 목록 (다중)
+  books?: BookRef[];
+  // 하위 호환: 단수 필드 (기존 문서 지원)
   bookId?: string;
   bookTitle?: string;
   bookCoverUrl?: string;
   bookAuthor?: string;
   // 오너가 선택한 발제 ID 목록
   selectedTopicIds?: string[];
+  inviteCode?: string;
 }
 
 // ─── Event (모임 일정) ─────────────────────────────────
@@ -191,6 +206,7 @@ export interface Event {
   date: Timestamp;
   location: string;
   topicId?: string;
+  bookId?: string;
   attendees: string[]; // uid[]
   createdAt: Timestamp;
 }

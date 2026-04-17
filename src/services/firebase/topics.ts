@@ -8,6 +8,8 @@ import {
   addDoc,
   setDoc,
   doc,
+  updateDoc,
+  deleteDoc,
   where,
   serverTimestamp,
   QueryConstraint,
@@ -141,6 +143,14 @@ export async function createTopic(
  * 미리 확보한 ID로 발제 문서를 생성.
  * 이미지 참고자료가 있을 때 Storage 업로드 → 문서 생성 순서로 진행할 때 사용.
  */
+export async function updateTopic(topicId: string, updates: { title?: string; body?: string }): Promise<void> {
+  await updateDoc(doc(db, 'topics', topicId), updates);
+}
+
+export async function deleteTopic(topicId: string): Promise<void> {
+  await deleteDoc(doc(db, 'topics', topicId));
+}
+
 export async function createTopicWithId(
   topicId: string,
   data: Omit<Topic, 'topicId' | 'answerCount' | 'likeCount' | 'trendScore' | 'createdAt'>

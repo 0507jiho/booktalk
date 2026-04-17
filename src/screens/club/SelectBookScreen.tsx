@@ -14,7 +14,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ClubStackParamList } from '@/navigation/ClubStackNavigator';
 import { searchBooks, AladinBook } from '@/services/aladin/client';
-import { selectBookForClub } from '@/services/firebase/clubs';
+import { addBookToClub } from '@/services/firebase/clubs';
 import { fixImageUrl } from '@/utils/image';
 
 type Props = NativeStackScreenProps<ClubStackParamList, 'SelectBook'>;
@@ -47,11 +47,11 @@ export default function SelectBookScreen({ route, navigation }: Props) {
   async function handleSelect(book: AladinBook) {
     setIsSelecting(true);
     try {
-      await selectBookForClub(clubId, {
+      await addBookToClub(clubId, {
         bookId: book.isbn13 || String(book.itemId),
-        bookTitle: book.title,
-        bookCoverUrl: book.cover,
-        bookAuthor: book.author,
+        title: book.title,
+        coverUrl: book.cover,
+        author: book.author,
       });
       navigation.goBack();
     } catch {

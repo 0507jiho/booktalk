@@ -33,7 +33,8 @@ export async function createEvent(
   title: string,
   date: Date,
   location: string,
-  topicId?: string
+  topicId?: string,
+  bookId?: string,
 ): Promise<Event> {
   const ref = await addDoc(collection(db, 'events'), {
     clubId,
@@ -42,6 +43,7 @@ export async function createEvent(
     location,
     attendees: [],
     ...(topicId ? { topicId } : {}),
+    ...(bookId ? { bookId } : {}),
     createdAt: serverTimestamp(),
   });
   const snap = await getDoc(ref);
@@ -60,7 +62,7 @@ export async function toggleEventAttendance(
 
 export async function updateEvent(
   eventId: string,
-  updates: Partial<Pick<Event, 'title' | 'date' | 'location'>>
+  updates: Partial<Pick<Event, 'title' | 'date' | 'location' | 'bookId'>>
 ): Promise<void> {
   await updateDoc(doc(db, 'events', eventId), updates);
 }

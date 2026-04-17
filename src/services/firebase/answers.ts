@@ -77,6 +77,15 @@ export async function addAnswer(
   return { answerId: ref.id, ...snap.data() } as Answer;
 }
 
+export async function updateAnswer(answerId: string, content: string): Promise<void> {
+  await updateDoc(doc(db, 'answers', answerId), { content });
+}
+
+export async function deleteAnswer(answerId: string, topicId: string): Promise<void> {
+  await deleteDoc(doc(db, 'answers', answerId));
+  await updateDoc(doc(db, 'topics', topicId), { answerCount: increment(-1) });
+}
+
 export async function toggleAnswerLike(
   answerId: string,
   userId: string,

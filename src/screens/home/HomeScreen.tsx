@@ -23,6 +23,7 @@ import { HomeStackParamList } from '@/navigation/HomeStackNavigator';
 import { fixImageUrl } from '@/utils/image';
 import dayjs from 'dayjs';
 import SkeletonCard from '@/components/SkeletonCard';
+import SpoilerContent from '@/components/SpoilerContent';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'HomeFeed'>;
 
@@ -323,6 +324,8 @@ function TrendingTopicCard({ topic, onPress }: { topic: Topic; onPress: () => vo
       <View style={styles.trendingMeta}>
         <Ionicons name="chatbubble-outline" size={12} color="#767676" />
         <Text style={styles.trendingCount}>{topic.answerCount}</Text>
+        <Ionicons name="heart-outline" size={12} color="#767676" style={{ marginLeft: 8 }} />
+        <Text style={styles.trendingCount}>{topic.likeCount ?? 0}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -437,7 +440,9 @@ function ReviewCard({
         <Text style={styles.badge}>리뷰</Text>
         <StarRating rating={review.rating} />
       </View>
-      <Text style={styles.content} numberOfLines={3}>{review.content}</Text>
+      <SpoilerContent hasSpoiler={review.hasSpoiler}>
+        <Text style={styles.content} numberOfLines={3}>{review.content}</Text>
+      </SpoilerContent>
       <View style={styles.cardFooter}>
         <TouchableOpacity style={styles.likeBtn} onPress={handleLike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={15} color={isLiked ? '#E74C3C' : '#767676'} />
@@ -502,7 +507,9 @@ function TopicCard({
         </Text>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>{topic.title}</Text>
-      <Text style={styles.content} numberOfLines={2}>{topic.body}</Text>
+      <SpoilerContent hasSpoiler={topic.hasSpoiler}>
+        <Text style={styles.content} numberOfLines={2}>{topic.body}</Text>
+      </SpoilerContent>
       <View style={styles.cardFooter}>
         <Ionicons name="chatbubble-outline" size={14} color="#767676" />
         <Text style={styles.footerCount}>{topic.answerCount}</Text>
