@@ -319,17 +319,14 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
               Alert.alert('오류', '책 제거에 실패했습니다.');
             }
           }}
-          onSelectTopic={() => {
-            const firstBook = club.books?.[0];
-            const bookId = firstBook?.bookId ?? club.bookId;
-            if (bookId) navigation.navigate('SelectTopic', { clubId, bookId, selectedTopicIds: club.selectedTopicIds ?? [] });
+          onSelectTopic={(bookId) => {
+            navigation.navigate('SelectTopic', { clubId, bookId, selectedTopicIds: club.selectedTopicIds ?? [] });
           }}
-          onWriteTopic={() => {
-            const firstBook = club.books?.[0];
-            const bookId = firstBook?.bookId ?? club.bookId;
-            const bookTitle = firstBook?.title ?? club.bookTitle ?? '';
-            const bookCoverUrl = firstBook?.coverUrl ?? club.bookCoverUrl ?? '';
-            if (bookId) navigation.navigate('WriteTopic', { clubId, bookId, bookTitle, bookCoverUrl });
+          onWriteTopic={(bookId) => {
+            const book = club.books?.find(b => b.bookId === bookId);
+            const bookTitle = book?.title ?? club.bookTitle ?? '';
+            const bookCoverUrl = book?.coverUrl ?? club.bookCoverUrl ?? '';
+            navigation.navigate('WriteTopic', { clubId, bookId, bookTitle, bookCoverUrl });
           }}
         />
       )}
@@ -518,9 +515,24 @@ function TopicsTab({
   onTopicPress: (topicId: string) => void;
   onSelectBook: () => void;
   onRemoveBook: (bookId: string) => void;
-  onSelectTopic: () => void;
-  onWriteTopic: () => void;
+  onSelectTopic: (bookId: string) => void;
+  onWriteTopic: (bookId: string) => void;
 }) {
+  const books = club.books ?? [];
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(books[0]?.bookId ?? null);
+
+  useEffect(() => {
+    if (books.length > 0 && !books.find(b => b.bookId === selectedBookId)) {
+      setSelectedBookId(books[0]?.bookId ?? null);
+    }
+  }, [books.length]);
+
+  const filteredTopics = selectedBookId
+    ? topics.filter(t => t.bookId === selectedBookId)
+    : topics;
+
+  const hasBooks = books.length > 0 || !!club.bookId;
+
   return (
     <View style={styles.tabContent}>
       {/* 읽는 책 목록 */}
@@ -534,27 +546,41 @@ function TopicsTab({
             </TouchableOpacity>
           )}
         </View>
-        {(club.books?.length ?? 0) > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookListContent}>
-            {(club.books ?? []).map(b => (
-              <View key={b.bookId} style={styles.bookCard}>
-                {b.coverUrl ? (
-                  <Image source={{ uri: fixImageUrl(b.coverUrl) }} style={styles.bookCover} />
-                ) : (
-                  <View style={styles.bookCoverPlaceholder}>
-                    <Ionicons name="book-outline" size={20} color="#9E9E9E" />
-                  </View>
-                )}
-                <Text style={styles.bookCardTitle} numberOfLines={2}>{b.title}</Text>
-                <Text style={styles.bookCardAuthor} numberOfLines={1}>{b.author}</Text>
-                {isOwner && (
-                  <TouchableOpacity style={styles.removeBookBtn} onPress={() => onRemoveBook(b.bookId)}>
-                    <Ionicons name="close-circle" size={18} color="#E74C3C" />
+        {books.length > 0 ? (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookListContent}>
+              {books.map(b => {
+                const isSelected = b.bookId === selectedBookId;
+                return (
+                  <TouchableOpacity
+                    key={b.bookId}
+                    style={[styles.bookCard, isSelected && styles.bookCardSelected]}
+                    onPress={() => setSelectedBookId(b.bookId)}
+                    activeOpacity={0.7}
+                  >
+                    {b.coverUrl ? (
+                      <Image source={{ uri: fixImageUrl(b.coverUrl) }} style={styles.bookCover} />
+                    ) : (
+                      <View style={styles.bookCoverPlaceholder}>
+                        <Ionicons name="book-outline" size={20} color="#9E9E9E" />
+                      </View>
+                    )}
+                    <Text style={styles.bookCardTitle} numberOfLines={2}>{b.title}</Text>
+                    <Text style={styles.bookCardAuthor} numberOfLines={1}>{b.author}</Text>
                   </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+                );
+              })}
+            </ScrollView>
+            {isOwner && selectedBookId && (
+              <TouchableOpacity
+                style={styles.removeSelectedBookBtn}
+                onPress={() => onRemoveBook(selectedBookId)}
+              >
+                <Ionicons name="trash-outline" size={14} color="#E74C3C" />
+                <Text style={styles.removeSelectedBookBtnText}>이 책 제거</Text>
+              </TouchableOpacity>
+            )}
+          </>
         ) : club.bookId ? (
           <View style={styles.bookRow}>
             {club.bookCoverUrl ? (
@@ -580,7 +606,7 @@ function TopicsTab({
 
       {/* 발제 목록 */}
       <FlatList
-        data={topics}
+        data={filteredTopics}
         keyExtractor={item => item.topicId}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -600,13 +626,13 @@ function TopicsTab({
           </TouchableOpacity>
         )}
         ListHeaderComponent={
-          isOwner && (club.books?.length || club.bookId) ? (
+          isOwner && hasBooks && selectedBookId ? (
             <View style={styles.topicActions}>
-              <TouchableOpacity style={styles.topicActionBtn} onPress={onSelectTopic}>
+              <TouchableOpacity style={styles.topicActionBtn} onPress={() => onSelectTopic(selectedBookId)}>
                 <Ionicons name="search-outline" size={15} color="#3D4DC4" />
                 <Text style={styles.topicActionBtnText}>발제 선택</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.topicActionBtn} onPress={onWriteTopic}>
+              <TouchableOpacity style={styles.topicActionBtn} onPress={() => onWriteTopic(selectedBookId)}>
                 <Ionicons name="add-outline" size={15} color="#3D4DC4" />
                 <Text style={styles.topicActionBtnText}>발제 작성</Text>
               </TouchableOpacity>
@@ -614,7 +640,7 @@ function TopicsTab({
           ) : null
         }
         ListEmptyComponent={
-          (club.books?.length || club.bookId) ? (
+          hasBooks ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {isOwner ? '발제를 선택하거나 새로 작성해보세요.' : '아직 발제가 없어요.'}
@@ -963,10 +989,12 @@ const styles = StyleSheet.create({
   addBookBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#3D4DC4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   addBookBtnText: { fontSize: 12, color: '#3D4DC4', fontWeight: '600' },
   bookListContent: { paddingVertical: 4, gap: 10 },
-  bookCard: { width: 100, backgroundColor: '#F8F8F8', borderRadius: 10, padding: 8, alignItems: 'center', position: 'relative' },
+  bookCard: { width: 100, backgroundColor: '#F8F8F8', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  bookCardSelected: { borderColor: '#3D4DC4', backgroundColor: '#F3F4FC' },
   bookCardTitle: { fontSize: 11, fontWeight: '600', color: '#212121', textAlign: 'center', marginTop: 6 },
+  removeSelectedBookBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#E74C3C' },
+  removeSelectedBookBtnText: { fontSize: 13, color: '#E74C3C', fontWeight: '600' },
   bookCardAuthor: { fontSize: 10, color: '#9E9E9E', textAlign: 'center', marginTop: 2 },
-  removeBookBtn: { position: 'absolute', top: -6, right: -6 },
   bookPickerSection: { marginBottom: 12 },
   bookPickerLabel: { fontSize: 13, color: '#616161', marginBottom: 6 },
   bookChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#F8F8F8' },

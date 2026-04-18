@@ -33,6 +33,7 @@ export type HomeStackParamList = {
     bookId: string;
     rating: number;
     content: string;
+    hasSpoiler?: boolean;
     likeCount: number;
     createdAtMillis: number;
     bookTitle?: string;

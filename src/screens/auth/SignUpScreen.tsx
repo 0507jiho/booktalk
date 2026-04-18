@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/services/firebase/config';
@@ -77,6 +78,7 @@ export default function SignUpScreen({ navigation }: Props) {
         createdAt: serverTimestamp(),
       });
       Analytics.signUp();
+      await AsyncStorage.setItem('auto_login', 'true');
     } catch (e) {
       Alert.alert('회원가입 실패', getErrorMessage((e as { code: string }).code));
     } finally {

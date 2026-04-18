@@ -11,9 +11,11 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
+  Switch,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/services/firebase/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { signInWithGoogle } from '@/services/firebase/googleAuth'; // TODO: 네이티브 빌드 시 활성화
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '@/navigation/AuthNavigator';
@@ -25,6 +27,7 @@ type Props = {
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [autoLogin, setAutoLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleLogin() {
@@ -35,6 +38,7 @@ export default function LoginScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      await AsyncStorage.setItem('auto_login', autoLogin ? 'true' : 'false');
     } catch (e) {
       Alert.alert('로그인 실패', getErrorMessage((e as { code: string }).code));
     } finally {
@@ -71,6 +75,15 @@ export default function LoginScreen({ navigation }: Props) {
             onChangeText={setPassword}
             secureTextEntry
           />
+
+          <View style={styles.autoLoginRow}>
+            <Text style={styles.autoLoginLabel}>자동 로그인</Text>
+            <Switch
+              value={autoLogin}
+              onValueChange={setAutoLogin}
+              trackColor={{ false: '#E0E0E0', true: '#3D4DC4' }}
+            />
+          </View>
 
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -155,5 +168,17 @@ const styles = StyleSheet.create({
   signUpText: {
     color: '#4A90E2',
     fontSize: 14,
+  },
+  autoLoginRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  autoLoginLabel: {
+    fontSize: 15,
+    color: '#424242',
   },
 });

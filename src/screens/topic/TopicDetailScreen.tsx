@@ -29,6 +29,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fixImageUrl } from '@/utils/image';
 import StanceProgressBar from '@/components/StanceProgressBar';
 import SpoilerContent from '@/components/SpoilerContent';
+import ActionSheet from '@/components/ActionSheet';
 
 type Props = NativeStackScreenProps<TopicStackParamList, 'TopicDetail'>;
 
@@ -384,16 +385,18 @@ function TopicHeader({
   onBookPress: () => void;
   onAuthorPress: () => void;
 }) {
-  function showMenu() {
-    Alert.alert('발제 관리', '', [
-      { text: '수정', onPress: onEdit },
-      { text: '삭제', style: 'destructive', onPress: onDelete },
-      { text: '취소', style: 'cancel' },
-    ]);
-  }
+  const [menuVisible, setMenuVisible] = useState(false);
 
   return (
     <View style={styles.header}>
+      <ActionSheet
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        actions={[
+          { label: '수정', icon: 'pencil-outline', onPress: onEdit },
+          { label: '삭제', icon: 'trash-outline', onPress: onDelete, destructive: true },
+        ]}
+      />
       {/* 작성자 */}
       <View style={styles.authorRow}>
         <TouchableOpacity style={styles.authorRowInner} onPress={onAuthorPress} activeOpacity={0.7}>
@@ -406,7 +409,7 @@ function TopicHeader({
           <Text style={styles.metaDate}>{dayjs(topic.createdAt.toDate()).format('YYYY.MM.DD')}</Text>
         </TouchableOpacity>
         {uid === topic.userId && (
-          <TouchableOpacity onPress={showMenu} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => setMenuVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="ellipsis-horizontal" size={20} color="#767676" />
           </TouchableOpacity>
         )}
@@ -556,13 +559,7 @@ function AnswerItem({
   const [replyEditId, setReplyEditId] = useState<string | null>(null);
   const [replyEditContent, setReplyEditContent] = useState('');
 
-  function showAnswerMenu() {
-    Alert.alert('답변 관리', '', [
-      { text: '수정', onPress: () => { setEditAnswerContent(displayContent); setIsEditingAnswer(true); } },
-      { text: '삭제', style: 'destructive', onPress: () => onDeleteAnswer(answer.answerId) },
-      { text: '취소', style: 'cancel' },
-    ]);
-  }
+  const [answerMenuVisible, setAnswerMenuVisible] = useState(false);
 
   async function handleSaveAnswerEdit() {
     if (!editAnswerContent.trim()) return;
@@ -575,27 +572,7 @@ function AnswerItem({
     }
   }
 
-  function showReplyMenu(r: Reply) {
-    Alert.alert('답글 관리', '', [
-      { text: '수정', onPress: () => { setReplyEditContent(r.content); setReplyEditId(r.replyId); } },
-      {
-        text: '삭제', style: 'destructive', onPress: () => {
-          Alert.alert('답글 삭제', '이 답글을 삭제할까요?', [
-            { text: '취소', style: 'cancel' },
-            { text: '삭제', style: 'destructive', onPress: async () => {
-              try {
-                await deleteReply(r.replyId);
-                setReplies(prev => prev.filter(x => x.replyId !== r.replyId));
-              } catch {
-                Alert.alert('오류', '삭제에 실패했습니다.');
-              }
-            }},
-          ]);
-        }
-      },
-      { text: '취소', style: 'cancel' },
-    ]);
-  }
+  const [replyMenuTarget, setReplyMenuTarget] = useState<Reply | null>(null);
 
   async function handleSaveReplyEdit(replyId: string) {
     if (!replyEditContent.trim()) return;
@@ -664,6 +641,30 @@ function AnswerItem({
 
   return (
     <View style={styles.answerCard}>
+      <ActionSheet
+        visible={answerMenuVisible}
+        onClose={() => setAnswerMenuVisible(false)}
+        actions={[
+          { label: '수정', icon: 'pencil-outline', onPress: () => { setEditAnswerContent(displayContent); setIsEditingAnswer(true); } },
+          { label: '삭제', icon: 'trash-outline', onPress: () => onDeleteAnswer(answer.answerId), destructive: true },
+        ]}
+      />
+      <ActionSheet
+        visible={replyMenuTarget !== null}
+        onClose={() => setReplyMenuTarget(null)}
+        actions={[
+          { label: '수정', icon: 'pencil-outline', onPress: () => { if (replyMenuTarget) { setReplyEditContent(replyMenuTarget.content); setReplyEditId(replyMenuTarget.replyId); } } },
+          { label: '삭제', icon: 'trash-outline', destructive: true, onPress: async () => {
+            if (!replyMenuTarget) return;
+            try {
+              await deleteReply(replyMenuTarget.replyId);
+              setReplies(prev => prev.filter(x => x.replyId !== replyMenuTarget.replyId));
+            } catch {
+              Alert.alert('오류', '삭제에 실패했습니다.');
+            }
+          }},
+        ]}
+      />
       <View style={styles.answerHeader}>
         <TouchableOpacity
           style={styles.answerAuthorRow}
@@ -687,7 +688,7 @@ function AnswerItem({
         )}
         <Text style={styles.answerDate}>{dayjs(answer.createdAt.toDate()).format('MM.DD HH:mm')}</Text>
         {uid === answer.userId && (
-          <TouchableOpacity onPress={showAnswerMenu} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
+          <TouchableOpacity onPress={() => setAnswerMenuVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
             <Ionicons name="ellipsis-horizontal" size={18} color="#767676" />
           </TouchableOpacity>
         )}
@@ -776,7 +777,7 @@ function AnswerItem({
                   </TouchableOpacity>
                   <Text style={styles.replyDate}>{dayjs(r.createdAt.toDate()).format('MM.DD HH:mm')}</Text>
                   {uid === r.userId && (
-                    <TouchableOpacity onPress={() => showReplyMenu(r)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
+                    <TouchableOpacity onPress={() => setReplyMenuTarget(r)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: 6 }}>
                       <Ionicons name="ellipsis-horizontal" size={16} color="#767676" />
                     </TouchableOpacity>
                   )}

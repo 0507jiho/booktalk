@@ -394,7 +394,7 @@ export default function WriteTopicScreen() {
 
         {/* 스포일러 토글 */}
         <View style={styles.spoilerRow}>
-          <View>
+          <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={styles.spoilerLabel}>스포일러 포함</Text>
             <Text style={styles.spoilerDesc}>독자에게 내용이 가려져 표시됩니다</Text>
           </View>

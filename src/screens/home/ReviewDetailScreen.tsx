@@ -7,13 +7,14 @@ import { HomeStackParamList } from '@/navigation/HomeStackNavigator';
 import { fixImageUrl } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { checkIsLiked, toggleLike } from '@/services/firebase/likes';
+import SpoilerContent from '@/components/SpoilerContent';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ReviewDetail'>;
 
 const PRIMARY = '#3D4DC4';
 
 export default function ReviewDetailScreen({ route, navigation }: Props) {
-  const { reviewId, rating, content, likeCount: initialLikeCount, createdAtMillis, bookTitle, bookCoverUrl, bookId, author, displayName } = route.params;
+  const { reviewId, rating, content, hasSpoiler, likeCount: initialLikeCount, createdAtMillis, bookTitle, bookCoverUrl, bookId, author, displayName } = route.params;
   const { firebaseUser } = useAuthStore();
 
   const [isLiked, setIsLiked] = useState(false);
@@ -89,7 +90,9 @@ export default function ReviewDetailScreen({ route, navigation }: Props) {
       </View>
       <Text style={styles.date}>{dayjs(createdAtMillis).format('YYYY년 MM월 DD일')}</Text>
       <View style={styles.divider} />
-      <Text style={styles.reviewContent}>{content}</Text>
+      <SpoilerContent hasSpoiler={hasSpoiler}>
+        <Text style={styles.reviewContent}>{content}</Text>
+      </SpoilerContent>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.likeBtn} onPress={handleLike} activeOpacity={0.7}>

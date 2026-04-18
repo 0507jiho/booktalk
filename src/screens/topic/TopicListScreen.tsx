@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import StanceProgressBar from '@/components/StanceProgressBar';
 import SkeletonCard from '@/components/SkeletonCard';
 import EmptyState from '@/components/EmptyState';
+import SpoilerContent from '@/components/SpoilerContent';
 
 type Nav = NativeStackNavigationProp<TopicStackParamList, 'TopicList'>;
 
@@ -164,7 +165,9 @@ function TopicCard({
         <Text style={styles.date}>{dayjs(topic.createdAt.toDate()).format('MM.DD')}</Text>
       </View>
       <Text style={styles.title} numberOfLines={2}>{topic.title}</Text>
-      <Text style={styles.body} numberOfLines={2}>{topic.body}</Text>
+      <SpoilerContent hasSpoiler={topic.hasSpoiler}>
+        <Text style={styles.body} numberOfLines={2}>{topic.body}</Text>
+      </SpoilerContent>
       <View style={styles.metaRow}>
         <View style={styles.metaItem}>
           <Ionicons name="chatbubble-outline" size={13} color="#767676" />

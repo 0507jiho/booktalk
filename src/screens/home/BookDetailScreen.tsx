@@ -18,6 +18,7 @@ import { setUserBook, fetchUserBooks, removeUserBook } from '@/services/firebase
 import { useAuthStore } from '@/stores/authStore';
 import { Review, Topic, ReadingStatus } from '@/types';
 import { fixImageUrl } from '@/utils/image';
+import SpoilerContent from '@/components/SpoilerContent';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'BookDetail'>;
 type TabKey = 'reviews' | 'topics';
@@ -190,6 +191,7 @@ export default function BookDetailScreen({ route, navigation }: Props) {
                   bookId: item.bookId,
                   rating: item.rating,
                   content: item.content,
+                  hasSpoiler: item.hasSpoiler ?? false,
                   likeCount: item.likeCount,
                   createdAtMillis: item.createdAt.toMillis(),
                   bookTitle: title,
@@ -218,7 +220,9 @@ export default function BookDetailScreen({ route, navigation }: Props) {
                 </Text>
                 <Text style={styles.reviewDate}>{dayjs(item.createdAt.toDate()).format('YYYY.MM.DD')}</Text>
               </View>
-              <Text style={styles.reviewContent} numberOfLines={3}>{item.content}</Text>
+              <SpoilerContent hasSpoiler={item.hasSpoiler}>
+                <Text style={styles.reviewContent} numberOfLines={3}>{item.content}</Text>
+              </SpoilerContent>
               <Text style={styles.likeText}>♡ {item.likeCount}</Text>
             </TouchableOpacity>
           )}

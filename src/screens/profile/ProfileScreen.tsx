@@ -24,6 +24,7 @@ import { useFeedStore } from '@/stores/feedStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { fixImageUrl } from '@/utils/image';
 import { fetchLikeState, toggleLike } from '@/services/firebase/likes';
+import SpoilerContent from '@/components/SpoilerContent';
 import dayjs from 'dayjs';
 import { Review, Topic, Answer } from '@/types';
 
@@ -363,7 +364,9 @@ function ReviewPostCard({
         <Text style={styles.postStars}>{'★'.repeat(item.rating)}</Text>
         <Text style={styles.postDate}>{dayjs(item.createdAt.toDate()).format('MM.DD')}</Text>
       </View>
-      <Text style={styles.postContent} numberOfLines={2}>{item.content}</Text>
+      <SpoilerContent hasSpoiler={item.hasSpoiler}>
+        <Text style={styles.postContent} numberOfLines={2}>{item.content}</Text>
+      </SpoilerContent>
       <TouchableOpacity style={styles.postLikeRow} onPress={handleLike} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
         <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={13} color={isLiked ? '#E74C3C' : '#BDBDBD'} />
         <Text style={[styles.postLikeCount, isLiked && { color: '#E74C3C' }]}>{likeCount}</Text>
