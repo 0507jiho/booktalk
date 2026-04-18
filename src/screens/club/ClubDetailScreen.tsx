@@ -571,15 +571,6 @@ function TopicsTab({
                 );
               })}
             </ScrollView>
-            {isOwner && selectedBookId && (
-              <TouchableOpacity
-                style={styles.removeSelectedBookBtn}
-                onPress={() => onRemoveBook(selectedBookId)}
-              >
-                <Ionicons name="trash-outline" size={14} color="#E74C3C" />
-                <Text style={styles.removeSelectedBookBtnText}>이 책 제거</Text>
-              </TouchableOpacity>
-            )}
           </>
         ) : club.bookId ? (
           <View style={styles.bookRow}>
@@ -646,6 +637,17 @@ function TopicsTab({
                 {isOwner ? '발제를 선택하거나 새로 작성해보세요.' : '아직 발제가 없어요.'}
               </Text>
             </View>
+          ) : null
+        }
+        ListFooterComponent={
+          isOwner && selectedBookId && books.length > 0 ? (
+            <TouchableOpacity
+              style={styles.removeSelectedBookBtn}
+              onPress={() => onRemoveBook(selectedBookId)}
+            >
+              <Ionicons name="trash-outline" size={14} color="#E74C3C" />
+              <Text style={styles.removeSelectedBookBtnText}>이 책 제거</Text>
+            </TouchableOpacity>
           ) : null
         }
         contentContainerStyle={styles.listContent}
