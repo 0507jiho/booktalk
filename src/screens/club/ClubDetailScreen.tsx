@@ -311,13 +311,18 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
           isOwner={isOwner}
           onTopicPress={topicId => navigation.navigate('ClubTopicDetail', { topicId, clubId })}
           onSelectBook={() => navigation.navigate('SelectBook', { clubId })}
-          onRemoveBook={async (bookId) => {
-            try {
-              await removeBookFromClub(clubId, bookId);
-              setClub(prev => prev ? { ...prev, books: (prev.books ?? []).filter(b => b.bookId !== bookId) } : prev);
-            } catch {
-              Alert.alert('오류', '책 제거에 실패했습니다.');
-            }
+          onRemoveBook={(bookId) => {
+            Alert.alert('책 제거', '이 책을 모임에서 제거할까요?', [
+              { text: '취소', style: 'cancel' },
+              { text: '제거', style: 'destructive', onPress: async () => {
+                try {
+                  await removeBookFromClub(clubId, bookId);
+                  setClub(prev => prev ? { ...prev, books: (prev.books ?? []).filter(b => b.bookId !== bookId) } : prev);
+                } catch {
+                  Alert.alert('오류', '책 제거에 실패했습니다.');
+                }
+              }},
+            ]);
           }}
           onSelectTopic={(bookId) => {
             navigation.navigate('SelectTopic', { clubId, bookId, selectedTopicIds: club.selectedTopicIds ?? [] });

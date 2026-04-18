@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { Ionicons } from '@expo/vector-icons';
 import { ClubStackParamList } from '@/navigation/ClubStackNavigator';
 import { fetchBookTopics } from '@/services/firebase/topics';
-import { addTopicToClub } from '@/services/firebase/clubs';
+import { addTopicToClub, removeTopicFromClub } from '@/services/firebase/clubs';
 import { Topic } from '@/types';
 
 type Props = NativeStackScreenProps<ClubStackParamList, 'SelectTopic'>;
@@ -23,6 +23,8 @@ export default function SelectTopicScreen({ route, navigation }: Props) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [adding, setAdding] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(selectedTopicIds);
 
   useEffect(() => {
     fetchBookTopics(bookId)
@@ -32,15 +34,27 @@ export default function SelectTopicScreen({ route, navigation }: Props) {
   }, [bookId]);
 
   async function handleSelect(topic: Topic) {
-    if (selectedTopicIds.includes(topic.topicId)) return;
+    if (localSelectedIds.includes(topic.topicId)) return;
     setAdding(topic.topicId);
     try {
       await addTopicToClub(clubId, topic.topicId);
-      navigation.goBack();
+      setLocalSelectedIds(prev => [...prev, topic.topicId]);
     } catch {
       Alert.alert('오류', '발제 선택에 실패했습니다.');
     } finally {
       setAdding(null);
+    }
+  }
+
+  async function handleDeselect(topic: Topic) {
+    setRemoving(topic.topicId);
+    try {
+      await removeTopicFromClub(clubId, topic.topicId);
+      setLocalSelectedIds(prev => prev.filter(id => id !== topic.topicId));
+    } catch {
+      Alert.alert('오류', '선택 해제에 실패했습니다.');
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -58,12 +72,13 @@ export default function SelectTopicScreen({ route, navigation }: Props) {
         data={topics}
         keyExtractor={item => item.topicId}
         renderItem={({ item }) => {
-          const alreadySelected = selectedTopicIds.includes(item.topicId);
+          const alreadySelected = localSelectedIds.includes(item.topicId);
+          const isBusy = adding === item.topicId || removing === item.topicId;
           return (
             <TouchableOpacity
               style={[styles.topicCard, alreadySelected && styles.topicCardSelected]}
-              onPress={() => handleSelect(item)}
-              disabled={alreadySelected || adding === item.topicId}
+              onPress={() => alreadySelected ? handleDeselect(item) : handleSelect(item)}
+              disabled={isBusy}
               activeOpacity={0.7}
             >
               <View style={styles.topicHeader}>
@@ -79,10 +94,10 @@ export default function SelectTopicScreen({ route, navigation }: Props) {
                 <Text style={styles.metaText}>답변 {item.answerCount}개</Text>
               </View>
               <View style={styles.statusBadge}>
-                {alreadySelected ? (
-                  <Text style={styles.selectedLabel}>✓ 선택됨</Text>
-                ) : adding === item.topicId ? (
+                {isBusy ? (
                   <ActivityIndicator size="small" color="#3D4DC4" />
+                ) : alreadySelected ? (
+                  <Text style={styles.deselectLabel}>✓ 선택됨  (탭하여 해제)</Text>
                 ) : (
                   <Text style={styles.selectLabel}>+ 선택</Text>
                 )}
@@ -146,6 +161,7 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 12, color: '#767676' },
   statusBadge: { alignSelf: 'flex-end', marginTop: 4 },
   selectedLabel: { fontSize: 13, color: '#3D4DC4', fontWeight: '600' },
+  deselectLabel: { fontSize: 13, color: '#9E9E9E', fontWeight: '500' },
   selectLabel: { fontSize: 13, color: '#3D4DC4', fontWeight: '600' },
   empty: { paddingTop: 40, alignItems: 'center', gap: 6 },
   emptyText: { fontSize: 15, color: '#767676' },
