@@ -32,19 +32,17 @@ export default function RootNavigator() {
           await signOut(auth);
           return;
         }
-      }
-      setFirebaseUser(user);
-      if (user) {
         const [snap, done] = await Promise.all([
           getDoc(doc(db, 'users', user.uid)),
           AsyncStorage.getItem('onboarding_done'),
         ]);
-        if (snap.exists()) {
-          setUserProfile(snap.data() as User);
-        }
+        // 모든 데이터를 준비한 뒤 한 번에 업데이트 — 중간 렌더 방지
+        setFirebaseUser(user);
+        if (snap.exists()) setUserProfile(snap.data() as User);
         setOnboardingDone(done === 'true');
         registerPushToken(user.uid);
       } else {
+        setFirebaseUser(null);
         setUserProfile(null);
         setOnboardingDone(false);
       }
