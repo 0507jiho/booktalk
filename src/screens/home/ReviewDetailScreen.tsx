@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Image, TouchableOpacity,
   TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
@@ -15,10 +15,12 @@ import { updateReview, deleteReview } from '@/services/firebase/reviews';
 import SpoilerContent from '@/components/SpoilerContent';
 import ActionSheet from '@/components/ActionSheet';
 import ConfirmSheet from '@/components/ConfirmSheet';
+import { useBottomSheet } from '@/hooks/useBottomSheet';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ReviewDetail'>;
 
 const PRIMARY = '#3D4DC4';
+const SHEET_HEIGHT = Dimensions.get('window').height * 0.6;
 
 export default function ReviewDetailScreen({ route, navigation }: Props) {
   const {
@@ -39,25 +41,14 @@ export default function ReviewDetailScreen({ route, navigation }: Props) {
   const [editContent, setEditContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
 
-  const SHEET_HEIGHT = Dimensions.get('window').height * 0.6;
-  const editOverlayOpacity = useRef(new Animated.Value(0)).current;
-  const editSheetTranslateY = useRef(new Animated.Value(0)).current;
+  const { overlayOpacity: editOverlayOpacity, sheetTranslateY: editSheetTranslateY, animateOpen: openEditSheet, animateClose: closeEditSheet } = useBottomSheet(SHEET_HEIGHT);
 
   useEffect(() => {
-    if (editVisible) {
-      editSheetTranslateY.setValue(SHEET_HEIGHT);
-      Animated.parallel([
-        Animated.timing(editOverlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(editSheetTranslateY, { toValue: 0, duration: 280, useNativeDriver: true }),
-      ]).start();
-    }
+    if (editVisible) openEditSheet();
   }, [editVisible]);
 
   function handleCloseEdit() {
-    Animated.parallel([
-      Animated.timing(editOverlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(editSheetTranslateY, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
-    ]).start(() => setEditVisible(false));
+    closeEditSheet(() => setEditVisible(false));
   }
 
   useEffect(() => {

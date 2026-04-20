@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomSheet } from '@/hooks/useBottomSheet';
 
 export type ActionSheetAction = {
   label: string;
@@ -27,26 +28,18 @@ type Props = {
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.5;
 
 export default function ActionSheet({ visible, onClose, actions }: Props) {
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const { overlayOpacity, sheetTranslateY, animateOpen, animateClose, reset } = useBottomSheet(SHEET_HEIGHT);
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(overlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(sheetTranslateY, { toValue: 0, duration: 280, useNativeDriver: true }),
-      ]).start();
+      animateOpen();
     } else {
-      overlayOpacity.setValue(0);
-      sheetTranslateY.setValue(SHEET_HEIGHT);
+      reset();
     }
   }, [visible]);
 
   function handleClose() {
-    Animated.parallel([
-      Animated.timing(overlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(sheetTranslateY, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
-    ]).start(() => onClose());
+    animateClose(onClose);
   }
 
   return (
