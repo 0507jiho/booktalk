@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Image, TouchableOpacity,
   TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
+  Animated, TouchableWithoutFeedback, Dimensions,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,27 @@ export default function ReviewDetailScreen({ route, navigation }: Props) {
   const [editVisible, setEditVisible] = useState(false);
   const [editContent, setEditContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
+
+  const SHEET_HEIGHT = Dimensions.get('window').height * 0.6;
+  const editOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const editSheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (editVisible) {
+      editSheetTranslateY.setValue(SHEET_HEIGHT);
+      Animated.parallel([
+        Animated.timing(editOverlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(editSheetTranslateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [editVisible]);
+
+  function handleCloseEdit() {
+    Animated.parallel([
+      Animated.timing(editOverlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(editSheetTranslateY, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
+    ]).start(() => setEditVisible(false));
+  }
 
   useEffect(() => {
     if (!uid || !reviewId) return;
@@ -179,34 +201,38 @@ export default function ReviewDetailScreen({ route, navigation }: Props) {
       />
 
       {/* 수정 모달 */}
-      <Modal visible={editVisible} transparent animationType="slide" onRequestClose={() => setEditVisible(false)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <TouchableOpacity style={styles.editOverlay} activeOpacity={1} onPress={() => setEditVisible(false)} />
-          <View style={styles.editSheet}>
-            <View style={styles.handle} />
-            <Text style={styles.editTitle}>리뷰 수정</Text>
-            <TextInput
-              style={styles.editInput}
-              value={editContent}
-              onChangeText={setEditContent}
-              multiline
-              textAlignVertical="top"
-              autoFocus
-            />
-            <View style={styles.editBtns}>
-              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setEditVisible(false)}>
-                <Text style={styles.editCancelText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.editConfirmBtn, isSaving && { opacity: 0.6 }]}
-                onPress={handleSaveEdit}
-                disabled={isSaving}
-              >
-                <Text style={styles.editConfirmText}>저장</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+      <Modal visible={editVisible} transparent animationType="none" onRequestClose={handleCloseEdit}>
+        <View style={styles.editRoot}>
+          <TouchableWithoutFeedback onPress={handleCloseEdit}>
+            <Animated.View style={[styles.editOverlay, { opacity: editOverlayOpacity }]} />
+          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <Animated.View style={[styles.editSheet, { transform: [{ translateY: editSheetTranslateY }] }]}>
+              <View style={styles.handle} />
+              <Text style={styles.editTitle}>리뷰 수정</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editContent}
+                onChangeText={setEditContent}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+              />
+              <View style={styles.editBtns}>
+                <TouchableOpacity style={styles.editCancelBtn} onPress={handleCloseEdit}>
+                  <Text style={styles.editCancelText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.editConfirmBtn, isSaving && { opacity: 0.6 }]}
+                  onPress={handleSaveEdit}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.editConfirmText}>저장</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </>
   );
@@ -251,7 +277,8 @@ const styles = StyleSheet.create({
   likeText: { fontSize: 14, color: '#BDBDBD' },
   likeTextActive: { color: '#E74C3C' },
 
-  editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  editRoot: { flex: 1, justifyContent: 'flex-end' },
+  editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   editSheet: {
     backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 36,
