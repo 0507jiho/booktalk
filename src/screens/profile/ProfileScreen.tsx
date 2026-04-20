@@ -144,13 +144,14 @@ export default function ProfileScreen() {
       params: {
         reviewId: item.reviewId,
         bookId: item.bookId,
+        userId: item.userId,
         rating: item.rating,
         content: item.content,
+        hasSpoiler: item.hasSpoiler,
         likeCount: item.likeCount,
         createdAtMillis: item.createdAt.toMillis(),
         bookTitle: item.bookTitle,
         bookCoverUrl: item.bookCoverUrl,
-        author: item.bookTitle,
         displayName: item.displayName,
       },
     });

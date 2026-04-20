@@ -118,13 +118,14 @@ export default function HomeScreen({ navigation }: Props) {
                   navigation.navigate('ReviewDetail', {
                     reviewId: item.data.reviewId,
                     bookId: item.data.bookId,
+                    userId: item.data.userId,
                     rating: item.data.rating,
                     content: item.data.content,
+                    hasSpoiler: item.data.hasSpoiler,
                     likeCount: item.data.likeCount,
                     createdAtMillis: item.data.createdAt.toMillis(),
                     bookTitle: item.data.bookTitle,
                     bookCoverUrl: item.data.bookCoverUrl,
-                    author: item.data.bookTitle,
                     displayName: item.data.displayName,
                   })
                 }
