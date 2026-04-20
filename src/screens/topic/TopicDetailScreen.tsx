@@ -30,6 +30,7 @@ import { fixImageUrl } from '@/utils/image';
 import StanceProgressBar from '@/components/StanceProgressBar';
 import SpoilerContent from '@/components/SpoilerContent';
 import ActionSheet from '@/components/ActionSheet';
+import ConfirmSheet from '@/components/ConfirmSheet';
 
 type Props = NativeStackScreenProps<TopicStackParamList, 'TopicDetail'>;
 
@@ -58,6 +59,8 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
   const [editTopicVisible, setEditTopicVisible] = useState(false);
   const [editTopicTitle, setEditTopicTitle] = useState('');
   const [editTopicBody, setEditTopicBody] = useState('');
+  const [deleteTopicVisible, setDeleteTopicVisible] = useState(false);
+  const [deleteAnswerId, setDeleteAnswerId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -154,42 +157,32 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
   }
 
   function handleDeleteTopic() {
+    setDeleteTopicVisible(true);
+  }
+
+  async function confirmDeleteTopic() {
     if (!topic) return;
-    Alert.alert('발제 삭제', '이 발제를 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteTopic(topic.topicId);
-            navigation.goBack();
-          } catch {
-            Alert.alert('오류', '삭제에 실패했습니다.');
-          }
-        },
-      },
-    ]);
+    try {
+      await deleteTopic(topic.topicId);
+      navigation.goBack();
+    } catch {
+      Alert.alert('오류', '삭제에 실패했습니다.');
+    }
   }
 
   function handleDeleteAnswer(answerId: string) {
-    if (!topic) return;
-    Alert.alert('답변 삭제', '이 답변을 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAnswer(answerId, topic.topicId);
-            setAnswers(prev => prev.filter(a => a.answerId !== answerId));
-            setTopic(prev => prev ? { ...prev, answerCount: Math.max(0, prev.answerCount - 1) } : prev);
-          } catch {
-            Alert.alert('오류', '삭제에 실패했습니다.');
-          }
-        },
-      },
-    ]);
+    setDeleteAnswerId(answerId);
+  }
+
+  async function confirmDeleteAnswer() {
+    if (!deleteAnswerId || !topic) return;
+    try {
+      await deleteAnswer(deleteAnswerId, topic.topicId);
+      setAnswers(prev => prev.filter(a => a.answerId !== deleteAnswerId));
+      setTopic(prev => prev ? { ...prev, answerCount: Math.max(0, prev.answerCount - 1) } : prev);
+    } catch {
+      Alert.alert('오류', '삭제에 실패했습니다.');
+    }
   }
 
   if (isLoading) {
@@ -221,6 +214,24 @@ export default function TopicDetailScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <ConfirmSheet
+        visible={deleteTopicVisible}
+        onClose={() => setDeleteTopicVisible(false)}
+        title="발제 삭제"
+        description="이 발제를 삭제할까요?"
+        confirmLabel="삭제"
+        destructive
+        onConfirm={confirmDeleteTopic}
+      />
+      <ConfirmSheet
+        visible={deleteAnswerId !== null}
+        onClose={() => setDeleteAnswerId(null)}
+        title="답변 삭제"
+        description="이 답변을 삭제할까요?"
+        confirmLabel="삭제"
+        destructive
+        onConfirm={confirmDeleteAnswer}
+      />
       <FlatList
         data={filteredAnswers}
         keyExtractor={item => item.answerId}

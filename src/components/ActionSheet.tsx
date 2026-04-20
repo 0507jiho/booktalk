@@ -26,42 +26,46 @@ export default function ActionSheet({ visible, onClose, actions }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay} />
+        <View style={styles.container}>
+          <TouchableWithoutFeedback>
+            <View style={styles.sheet}>
+              <View style={styles.handle} />
+              {actions.map((action, index) => (
+                <React.Fragment key={action.label}>
+                  {index > 0 && <View style={styles.divider} />}
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => { onClose(); action.onPress(); }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={action.icon}
+                      size={20}
+                      color={action.destructive ? '#E74C3C' : '#212121'}
+                      style={styles.actionIcon}
+                    />
+                    <Text style={[styles.actionLabel, action.destructive && styles.actionLabelDestructive]}>
+                      {action.label}
+                    </Text>
+                  </TouchableOpacity>
+                </React.Fragment>
+              ))}
+              <View style={styles.cancelSeparator} />
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+                <Text style={styles.cancelLabel}>취소</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
       </TouchableWithoutFeedback>
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
-        {actions.map((action, index) => (
-          <React.Fragment key={action.label}>
-            {index > 0 && <View style={styles.divider} />}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => { onClose(); action.onPress(); }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={action.icon}
-                size={20}
-                color={action.destructive ? '#E74C3C' : '#212121'}
-                style={styles.actionIcon}
-              />
-              <Text style={[styles.actionLabel, action.destructive && styles.actionLabelDestructive]}>
-                {action.label}
-              </Text>
-            </TouchableOpacity>
-          </React.Fragment>
-        ))}
-        <View style={styles.cancelSeparator} />
-        <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
-          <Text style={styles.cancelLabel}>취소</Text>
-        </TouchableOpacity>
-      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
@@ -69,7 +73,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 32,
-    paddingHorizontal: 0,
   },
   handle: {
     width: 40,

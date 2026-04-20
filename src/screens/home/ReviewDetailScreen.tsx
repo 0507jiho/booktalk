@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import {
+  View, Text, ScrollView, StyleSheet, Image, TouchableOpacity,
+  TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
@@ -7,27 +10,40 @@ import { HomeStackParamList } from '@/navigation/HomeStackNavigator';
 import { fixImageUrl } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { checkIsLiked, toggleLike } from '@/services/firebase/likes';
+import { updateReview, deleteReview } from '@/services/firebase/reviews';
 import SpoilerContent from '@/components/SpoilerContent';
+import ActionSheet from '@/components/ActionSheet';
+import ConfirmSheet from '@/components/ConfirmSheet';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ReviewDetail'>;
 
 const PRIMARY = '#3D4DC4';
 
 export default function ReviewDetailScreen({ route, navigation }: Props) {
-  const { reviewId, rating, content, hasSpoiler, likeCount: initialLikeCount, createdAtMillis, bookTitle, bookCoverUrl, bookId, author, displayName } = route.params;
+  const {
+    reviewId, rating, content: initialContent, hasSpoiler,
+    likeCount: initialLikeCount, createdAtMillis,
+    bookTitle, bookCoverUrl, bookId, author, displayName, userId,
+  } = route.params;
   const { firebaseUser } = useAuthStore();
+  const uid = firebaseUser?.uid;
+  const isOwner = !!uid && uid === userId;
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
+  const [content, setContent] = useState(initialContent);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editContent, setEditContent] = useState(initialContent);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const uid = firebaseUser?.uid;
     if (!uid || !reviewId) return;
     checkIsLiked(uid, reviewId, 'review').then(setIsLiked);
-  }, [firebaseUser?.uid, reviewId]);
+  }, [uid, reviewId]);
 
   async function handleLike() {
-    const uid = firebaseUser?.uid;
     if (!uid || !reviewId) return;
     const prev = isLiked;
     setIsLiked(!prev);
@@ -42,71 +58,157 @@ export default function ReviewDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  async function handleSaveEdit() {
+    if (!editContent.trim()) return;
+    setIsSaving(true);
+    try {
+      await updateReview(reviewId, editContent.trim());
+      setContent(editContent.trim());
+      setEditVisible(false);
+    } catch {
+      Alert.alert('오류', '수정에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteReview(reviewId);
+      navigation.goBack();
+    } catch {
+      Alert.alert('오류', '삭제에 실패했습니다.');
+    }
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 작성자 */}
-      {displayName && (
-        <View style={styles.authorRow}>
-          <View style={styles.authorAvatar}>
-            <Text style={styles.authorAvatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* 작성자 */}
+        {displayName && (
+          <View style={styles.authorRow}>
+            <View style={styles.authorAvatar}>
+              <Text style={styles.authorAvatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            </View>
+            <Text style={styles.authorName}>{displayName}</Text>
+            {isOwner && (
+              <TouchableOpacity
+                style={styles.menuBtn}
+                onPress={() => setMenuVisible(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color="#767676" />
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={styles.authorName}>{displayName}</Text>
+        )}
+
+        {/* 책 미니카드 */}
+        {(bookCoverUrl || bookTitle) && (
+          <TouchableOpacity
+            style={styles.bookCard}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (bookId && bookTitle) {
+                navigation.navigate('BookDetail', {
+                  bookId,
+                  title: bookTitle,
+                  author: author ?? '',
+                  publisher: '',
+                  cover: fixImageUrl(bookCoverUrl),
+                });
+              }
+            }}
+          >
+            {bookCoverUrl ? (
+              <Image source={{ uri: fixImageUrl(bookCoverUrl) }} style={styles.bookCover} resizeMode="cover" />
+            ) : null}
+            <View style={styles.bookInfo}>
+              <Text style={styles.bookTitleText} numberOfLines={2}>{bookTitle}</Text>
+              {author ? <Text style={styles.bookAuthor}>{author}</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#BDBDBD" />
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.ratingRow}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <Ionicons key={i} name={i <= rating ? 'star' : 'star-outline'} size={20} color="#F5A623" />
+          ))}
+          <Text style={styles.ratingNum}>{rating}.0</Text>
         </View>
-      )}
+        <Text style={styles.date}>{dayjs(createdAtMillis).format('YYYY년 MM월 DD일')}</Text>
+        <View style={styles.divider} />
+        <SpoilerContent hasSpoiler={hasSpoiler}>
+          <Text style={styles.reviewContent}>{content}</Text>
+        </SpoilerContent>
 
-      {/* 책 미니카드 */}
-      {(bookCoverUrl || bookTitle) && (
-        <TouchableOpacity
-          style={styles.bookCard}
-          activeOpacity={0.7}
-          onPress={() => {
-            if (bookId && bookTitle) {
-              navigation.navigate('BookDetail', {
-                bookId,
-                title: bookTitle,
-                author: author ?? '',
-                publisher: '',
-                cover: fixImageUrl(bookCoverUrl),
-              });
-            }
-          }}
-        >
-          {bookCoverUrl ? (
-            <Image source={{ uri: fixImageUrl(bookCoverUrl) }} style={styles.bookCover} resizeMode="cover" />
-          ) : null}
-          <View style={styles.bookInfo}>
-            <Text style={styles.bookTitleText} numberOfLines={2}>{bookTitle}</Text>
-            {author ? <Text style={styles.bookAuthor}>{author}</Text> : null}
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.likeBtn} onPress={handleLike} activeOpacity={0.7}>
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isLiked ? '#E74C3C' : '#BDBDBD'}
+            />
+            <Text style={[styles.likeText, isLiked && styles.likeTextActive]}>
+              {likeCount}명이 좋아해요
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* 관리 액션시트 */}
+      <ActionSheet
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        actions={[
+          { label: '수정', icon: 'pencil-outline', onPress: () => { setEditContent(content); setEditVisible(true); } },
+          { label: '삭제', icon: 'trash-outline', destructive: true, onPress: () => setDeleteVisible(true) },
+        ]}
+      />
+
+      {/* 삭제 확인 */}
+      <ConfirmSheet
+        visible={deleteVisible}
+        onClose={() => setDeleteVisible(false)}
+        title="리뷰 삭제"
+        description="이 리뷰를 삭제할까요?"
+        confirmLabel="삭제"
+        destructive
+        onConfirm={handleDelete}
+      />
+
+      {/* 수정 모달 */}
+      <Modal visible={editVisible} transparent animationType="slide" onRequestClose={() => setEditVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={styles.editOverlay} activeOpacity={1} onPress={() => setEditVisible(false)} />
+          <View style={styles.editSheet}>
+            <View style={styles.handle} />
+            <Text style={styles.editTitle}>리뷰 수정</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editContent}
+              onChangeText={setEditContent}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+            />
+            <View style={styles.editBtns}>
+              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setEditVisible(false)}>
+                <Text style={styles.editCancelText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editConfirmBtn, isSaving && { opacity: 0.6 }]}
+                onPress={handleSaveEdit}
+                disabled={isSaving}
+              >
+                <Text style={styles.editConfirmText}>저장</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#BDBDBD" />
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.ratingRow}>
-        {[1, 2, 3, 4, 5].map(i => (
-          <Ionicons key={i} name={i <= rating ? 'star' : 'star-outline'} size={20} color="#F5A623" />
-        ))}
-        <Text style={styles.ratingNum}>{rating}.0</Text>
-      </View>
-      <Text style={styles.date}>{dayjs(createdAtMillis).format('YYYY년 MM월 DD일')}</Text>
-      <View style={styles.divider} />
-      <SpoilerContent hasSpoiler={hasSpoiler}>
-        <Text style={styles.reviewContent}>{content}</Text>
-      </SpoilerContent>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.likeBtn} onPress={handleLike} activeOpacity={0.7}>
-          <Ionicons
-            name={isLiked ? 'heart' : 'heart-outline'}
-            size={20}
-            color={isLiked ? '#E74C3C' : '#BDBDBD'}
-          />
-          <Text style={[styles.likeText, isLiked && styles.likeTextActive]}>
-            {likeCount}명이 좋아해요
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }
 
@@ -121,26 +223,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   authorAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: PRIMARY, justifyContent: 'center', alignItems: 'center',
   },
   authorAvatarText: { fontSize: 15, fontWeight: 'bold', color: '#fff' },
-  authorName: { fontSize: 15, fontWeight: '600', color: '#212121' },
+  authorName: { fontSize: 15, fontWeight: '600', color: '#212121', flex: 1 },
+  menuBtn: { padding: 4 },
 
   bookCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F7F8FF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ECEFFE',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F7F8FF', borderRadius: 10, padding: 12, marginBottom: 20,
+    borderWidth: 1, borderColor: '#ECEFFE',
   },
   bookCover: { width: 44, height: 62, borderRadius: 3 },
   bookInfo: { flex: 1 },
@@ -157,4 +250,31 @@ const styles = StyleSheet.create({
   likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   likeText: { fontSize: 14, color: '#BDBDBD' },
   likeTextActive: { color: '#E74C3C' },
+
+  editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  editSheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 36,
+  },
+  handle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  editTitle: { fontSize: 18, fontWeight: 'bold', color: '#212121', marginBottom: 16 },
+  editInput: {
+    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
+    minHeight: 140, marginBottom: 16,
+  },
+  editBtns: { flexDirection: 'row', gap: 12 },
+  editCancelBtn: {
+    flex: 1, height: 48, borderWidth: 1, borderColor: '#E0E0E0',
+    borderRadius: 8, justifyContent: 'center', alignItems: 'center',
+  },
+  editCancelText: { fontSize: 15, color: '#757575' },
+  editConfirmBtn: {
+    flex: 1, height: 48, backgroundColor: PRIMARY,
+    borderRadius: 8, justifyContent: 'center', alignItems: 'center',
+  },
+  editConfirmText: { fontSize: 15, color: '#fff', fontWeight: '600' },
 });

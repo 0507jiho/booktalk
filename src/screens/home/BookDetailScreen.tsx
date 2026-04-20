@@ -192,6 +192,7 @@ export default function BookDetailScreen({ route, navigation }: Props) {
                   rating: item.rating,
                   content: item.content,
                   hasSpoiler: item.hasSpoiler ?? false,
+                  userId: item.userId,
                   likeCount: item.likeCount,
                   createdAtMillis: item.createdAt.toMillis(),
                   bookTitle: title,

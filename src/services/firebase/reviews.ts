@@ -6,6 +6,9 @@ import {
   limit,
   getDocs,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/services/firebase/config';
@@ -42,6 +45,14 @@ export async function fetchTrendingReviews(pageSize = 5): Promise<Review[]> {
     query(collection(db, 'reviews'), orderBy('likeCount', 'desc'), limit(pageSize))
   );
   return snap.docs.map(d => ({ reviewId: d.id, ...d.data() } as Review));
+}
+
+export async function updateReview(reviewId: string, content: string): Promise<void> {
+  await updateDoc(doc(db, 'reviews', reviewId), { content });
+}
+
+export async function deleteReview(reviewId: string): Promise<void> {
+  await deleteDoc(doc(db, 'reviews', reviewId));
 }
 
 export async function createReview(

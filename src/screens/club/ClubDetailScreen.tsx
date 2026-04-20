@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import ConfirmSheet from '@/components/ConfirmSheet';
 import { useFocusEffect } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -66,6 +67,7 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
   const [club, setClub] = useState<Club | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
+  const [pendingRemoveBookId, setPendingRemoveBookId] = useState<string | null>(null);
   const [pendingMembers, setPendingMembers] = useState<Membership[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -311,19 +313,7 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
           isOwner={isOwner}
           onTopicPress={topicId => navigation.navigate('ClubTopicDetail', { topicId, clubId })}
           onSelectBook={() => navigation.navigate('SelectBook', { clubId })}
-          onRemoveBook={(bookId) => {
-            Alert.alert('책 제거', '이 책을 모임에서 제거할까요?', [
-              { text: '취소', style: 'cancel' },
-              { text: '제거', style: 'destructive', onPress: async () => {
-                try {
-                  await removeBookFromClub(clubId, bookId);
-                  setClub(prev => prev ? { ...prev, books: (prev.books ?? []).filter(b => b.bookId !== bookId) } : prev);
-                } catch {
-                  Alert.alert('오류', '책 제거에 실패했습니다.');
-                }
-              }},
-            ]);
-          }}
+          onRemoveBook={(bookId) => setPendingRemoveBookId(bookId)}
           onSelectTopic={(bookId) => {
             navigation.navigate('SelectTopic', { clubId, bookId, selectedTopicIds: club.selectedTopicIds ?? [] });
           }}
@@ -337,6 +327,23 @@ export default function ClubDetailScreen({ route, navigation }: Props) {
       )}
 
       {/* Modals */}
+      <ConfirmSheet
+        visible={pendingRemoveBookId !== null}
+        onClose={() => setPendingRemoveBookId(null)}
+        title="책 제거"
+        description="이 책을 모임에서 제거할까요?"
+        confirmLabel="제거"
+        destructive
+        onConfirm={async () => {
+          if (!pendingRemoveBookId) return;
+          try {
+            await removeBookFromClub(clubId, pendingRemoveBookId);
+            setClub(prev => prev ? { ...prev, books: (prev.books ?? []).filter(b => b.bookId !== pendingRemoveBookId) } : prev);
+          } catch {
+            Alert.alert('오류', '책 제거에 실패했습니다.');
+          }
+        }}
+      />
       <EventFormModal
         visible={showAddEvent || editingEvent !== null}
         clubId={clubId}

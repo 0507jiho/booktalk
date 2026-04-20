@@ -31,6 +31,7 @@ export type HomeStackParamList = {
   ReviewDetail: {
     reviewId: string;
     bookId: string;
+    userId?: string;
     rating: number;
     content: string;
     hasSpoiler?: boolean;
